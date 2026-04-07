@@ -28,13 +28,13 @@ export class UpdateUserUseCase {
 
     const updated = await this.userRepo.update(id, dto);
 
-    // Clear cache — lỗi cache không được fail business operation
+    // Clear cache with tag-based invalidation
     try {
       await Promise.all([
         this.cache.del(CacheKeys.user(id)),
         this.cache.del(CacheKeys.userByEmail(oldUser.email)),
-        // Clear user list cache
-        this.cache.del(CacheKeys.userList(1, 20)), // Clear first page
+        // Clear all user list cache with pattern matching
+        this.cache.del('users:list:*'), // Tag-based: clear all user list pages
       ]);
     } catch (err) {
       this.logger.warn('Cache invalidation failed', { id, err });

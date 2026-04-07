@@ -6,7 +6,6 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './modules/app.module';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { AppClsStore } from './modules/cls/cls.module';
 import { ClsService } from 'nestjs-cls';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -110,10 +109,6 @@ async function bootstrap(): Promise<void> {
       transform: true,
     }),
   );
-
-  // ── Global Filter (uses ClsService for requestId/traceId) ──────────────────
-  const clsService = app.get(ClsService<AppClsStore>);
-  app.useGlobalFilters(new AllExceptionsFilter(clsService));
 
   // ── Global Interceptors ─────────────────────────────────────────────────────
   app.useGlobalInterceptors(new ResponseInterceptor());

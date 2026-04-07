@@ -25,7 +25,13 @@ model User {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  @@index([createdAt])
+  @@index([isActive])                    // Filter active users
+  @@index([deletedAt])                    // Soft-delete queries
+  @@index([isActive, deletedAt])          // Active non-deleted users
+  @@index([email, isActive])              // Auth lookups
+  @@index([role, isActive])               // Role-based queries
+  @@index([createdAt, isActive])          // Sorted active user list
+  @@index([createdAt])                    // Keep existing
   @@map("users")
 }
 
@@ -39,6 +45,10 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([createdAt])
+  @@index([isActive])                    // Filter active products
+  @@index([price])                       // Price-based queries
+  @@index([stock])                       // Stock queries
+  @@index([isActive, createdAt])         // Sorted active products
+  @@index([createdAt])                   // Keep existing
   @@map("products")
 }

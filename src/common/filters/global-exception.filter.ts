@@ -8,6 +8,7 @@ import {
 import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AppError } from '@/common/errors/app.error';
+import { ApplicationError } from '@/common/domain/errors/application.error';
 import {
   createErrorResponse,
   createValidationErrorResponse,
@@ -44,6 +45,27 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private getErrorResponse(exception: unknown, request: Request) {
     const requestId = request.headers['x-request-id'] as string | undefined;
     const traceId = request.headers['x-trace-id'] as string | undefined;
+
+    // Priority: ApplicationError > AppError > HttpException > Unknown
+    if (exception instanceof ApplicationError) {
+      return {
+        success: false,
+        error: {
+          code: exception.code,
+          type: 'APPLICATION',
+          message: exception.message,
+          context: exception.context,
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId,
+          traceId,
+          path: request.url,
+          method: request.method,
+          statusCode: exception.statusCode,
+        },
+      };
+    }
 
     // Handle AppError instances
     if (exception instanceof AppError) {
