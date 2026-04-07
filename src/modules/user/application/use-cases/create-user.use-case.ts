@@ -7,6 +7,8 @@ import {
 import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { UserEntity } from '../../domain/entities/user.entity';
 import { ConflictError } from '@/common/domain/errors/application.error';
+import { v4 as uuidv4 } from 'uuid';
+import * as argon2 from 'argon2';
 
 @Injectable()
 export class CreateUserUseCase {
@@ -23,9 +25,6 @@ export class CreateUserUseCase {
     if (exists) {
       throw new ConflictError(`User with email ${dto.email} already exists`);
     }
-
-    const { v4: uuidv4 } = await import('uuid');
-    const argon2 = await import('argon2');
 
     const passwordHash = await argon2.hash(dto.password);
 
