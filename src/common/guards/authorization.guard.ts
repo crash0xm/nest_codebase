@@ -96,7 +96,7 @@ export class AuthorizationGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const { user } = request;
 
     // Check if user is authenticated
     if (!user) {
@@ -111,14 +111,8 @@ export class AuthorizationGuard implements CanActivate {
     }
 
     // Get required permissions from metadata
-    const requiredPermissions = this.reflector.get<string[]>(
-      'permissions',
-      context.getHandler(),
-    );
-    const requiredRoles = this.reflector.get<string[]>(
-      'roles',
-      context.getHandler(),
-    );
+    const requiredPermissions = this.reflector.get<string[]>('permissions', context.getHandler());
+    const requiredRoles = this.reflector.get<string[]>('roles', context.getHandler());
 
     try {
       // Check if user has required roles
@@ -169,16 +163,11 @@ export class AuthorizationGuard implements CanActivate {
 
       return true;
     } catch (error) {
-      this.logger.errorWithException(
-        'Authorization guard error',
-        error as Error,
-        undefined,
-        {
-          userId: user.id,
-          path: request.path,
-          method: request.method,
-        },
-      );
+      this.logger.errorWithException('Authorization guard error', error as Error, undefined, {
+        userId: user.id,
+        path: request.path,
+        method: request.method,
+      });
 
       throw AppError.forbidden('Authorization failed');
     }
@@ -254,8 +243,7 @@ export class AuthorizationGuard implements CanActivate {
     request: { params: Record<string, string> },
   ): boolean {
     // Extract resource ID from request parameters
-    const resourceId =
-      request.params.id || request.params.userId || request.params.productId;
+    const resourceId = request.params.id || request.params.userId || request.params.productId;
 
     if (!resourceId) {
       return false;
@@ -272,10 +260,7 @@ export class AuthorizationGuard implements CanActivate {
     }
   }
 
-  private checkProductOwnershipSync(
-    userId: string,
-    productId: string,
-  ): boolean {
+  private checkProductOwnershipSync(userId: string, productId: string): boolean {
     // This would typically involve a database call
     // For now, we'll implement a simple check
     // In a real implementation, you would query the database

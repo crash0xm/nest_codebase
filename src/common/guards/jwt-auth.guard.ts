@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  ExecutionContext,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -37,12 +33,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     // Additional blacklist check
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const { user } = request;
 
     if (user?.jti) {
-      const isBlacklisted = await this.tokenStore.isAccessTokenBlacklisted(
-        user.jti,
-      );
+      const isBlacklisted = await this.tokenStore.isAccessTokenBlacklisted(user.jti);
       if (isBlacklisted) {
         throw new UnauthorizedException('TOKEN_REVOKED');
       }

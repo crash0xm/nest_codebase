@@ -22,23 +22,18 @@ export class RequiredFieldError extends ValidationError {
 
 export class InvalidFormatError extends ValidationError {
   constructor(field: string, format: string, value?: unknown) {
-    super(
-      `Field "${field}" must be a valid ${format}`,
-      'INVALID_FORMAT',
-      field,
-      value,
-    );
+    super(`Field "${field}" must be a valid ${format}`, 'INVALID_FORMAT', field, value);
   }
 }
 
 export class InvalidLengthError extends ValidationError {
   constructor(field: string, min?: number, max?: number, value?: unknown) {
     let message = `Field "${field}"`;
-    if (min && max) {
+    if (min != null && max != null) {
       message += ` must be between ${min} and ${max} characters`;
-    } else if (min) {
+    } else if (min != null) {
       message += ` must be at least ${min} characters`;
-    } else if (max) {
+    } else if (max != null) {
       message += ` must be at most ${max} characters`;
     }
 
@@ -48,22 +43,13 @@ export class InvalidLengthError extends ValidationError {
 
 export class InvalidEmailFormatError extends ValidationError {
   constructor(email: string) {
-    super(
-      `Invalid email format: "${email}"`,
-      'INVALID_EMAIL_FORMAT',
-      'email',
-      email,
-    );
+    super(`Invalid email format: "${email}"`, 'INVALID_EMAIL_FORMAT', 'email', email);
   }
 }
 
 export class InvalidPasswordError extends ValidationError {
   constructor(reason: string) {
-    super(
-      `Password validation failed: ${reason}`,
-      'INVALID_PASSWORD',
-      'password',
-    );
+    super(`Password validation failed: ${reason}`, 'INVALID_PASSWORD', 'password');
   }
 }
 

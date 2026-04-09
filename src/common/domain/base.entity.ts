@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { plainToInstance } from 'class-transformer';
 
 export abstract class BaseEntity<TId = string> {
@@ -6,12 +7,7 @@ export abstract class BaseEntity<TId = string> {
   protected _updatedAt: Date;
   protected readonly _deletedAt: Date | null;
 
-  protected constructor(
-    id: TId,
-    createdAt?: Date,
-    updatedAt?: Date,
-    deletedAt?: Date | null,
-  ) {
+  protected constructor(id: TId, createdAt?: Date, updatedAt?: Date, deletedAt?: Date | null) {
     this._id = id;
     this._createdAt = createdAt ?? new Date();
     this._updatedAt = updatedAt ?? new Date();

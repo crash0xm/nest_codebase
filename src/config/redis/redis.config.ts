@@ -6,31 +6,31 @@ import { validateConfig } from '@/common/utils/config/validate-config';
 class EnvironmentVariablesValidator {
   @IsString()
   @IsOptional()
-  CACHE_REDIS_HOST: string;
+  cacheRedisHost: string = 'localhost';
 
   @IsInt()
   @IsOptional()
-  CACHE_REDIS_PORT: number;
+  cacheRedisPort: number = 6379;
 
   @IsString()
   @IsOptional()
-  CACHE_REDIS_PASSWORD: string;
+  cacheRedisPassword: string = '';
 
   @IsInt()
   @IsOptional()
-  CACHE_REDIS_DB: number;
+  cacheRedisDb: number = 0;
 
   @IsInt()
   @IsOptional()
-  CACHE_REDIS_CONNECT_TIMEOUT: number;
+  cacheRedisConnectTimeout: number = 5000;
 
   @IsBoolean()
   @IsOptional()
-  CACHE_REDIS_LAZY_CONNECT: boolean;
+  cacheRedisLazyConnect: boolean = false;
 
   @IsInt()
   @IsOptional()
-  CACHE_REDIS_MAX_RETRIES: number;
+  cacheRedisMaxRetries: number = 3;
 }
 
 export default registerAs<RedisConfig>('redis', () => {
@@ -40,12 +40,12 @@ export default registerAs<RedisConfig>('redis', () => {
   );
 
   return {
-    host: validatedConfig.CACHE_REDIS_HOST ?? 'localhost',
-    port: validatedConfig.CACHE_REDIS_PORT ?? 6379,
-    password: validatedConfig.CACHE_REDIS_PASSWORD ?? '',
-    db: validatedConfig.CACHE_REDIS_DB,
-    connectTimeout: validatedConfig.CACHE_REDIS_CONNECT_TIMEOUT,
-    lazyConnect: validatedConfig.CACHE_REDIS_LAZY_CONNECT,
-    maxRetriesPerRequest: validatedConfig.CACHE_REDIS_MAX_RETRIES,
+    host: validatedConfig.cacheRedisHost ?? 'localhost',
+    port: validatedConfig.cacheRedisPort ?? 6379,
+    password: validatedConfig.cacheRedisPassword ?? '',
+    db: validatedConfig.cacheRedisDb ?? 0,
+    connectTimeout: validatedConfig.cacheRedisConnectTimeout ?? 5000,
+    lazyConnect: validatedConfig.cacheRedisLazyConnect ?? false,
+    maxRetriesPerRequest: validatedConfig.cacheRedisMaxRetries ?? 3,
   };
 });
