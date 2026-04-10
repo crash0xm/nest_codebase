@@ -39,14 +39,18 @@ export class TransactionService {
   ) {}
 
   async runInTransaction<T>(
-    operations: (tx: import('@/generated/prisma/client').Prisma.TransactionClient) => Promise<T>,
+    operations: (
+      tx: import('@/generated/prisma/client').Prisma.TransactionClient,
+    ) => Promise<T>,
     options?: TransactionOptions,
   ): Promise<T> {
     return this.executeTransactionWithLogging<T>(operations, options);
   }
 
   private async executeTransactionWithLogging<T>(
-    operations: (tx: import('@/generated/prisma/client').Prisma.TransactionClient) => Promise<T>,
+    operations: (
+      tx: import('@/generated/prisma/client').Prisma.TransactionClient,
+    ) => Promise<T>,
     options?: TransactionOptions,
   ): Promise<T> {
     const transactionId = this.generateTransactionId();
@@ -67,7 +71,11 @@ export class TransactionService {
         timeout: options?.timeout,
       });
 
-      const result = await this.executeTransactionInternal(operations, transactionId, options);
+      const result = await this.executeTransactionInternal(
+        operations,
+        transactionId,
+        options,
+      );
 
       const duration = Date.now() - startTime;
 
@@ -99,7 +107,9 @@ export class TransactionService {
   }
 
   private async executeTransactionInternal<T>(
-    operations: (tx: import('@/generated/prisma/client').Prisma.TransactionClient) => Promise<T>,
+    operations: (
+      tx: import('@/generated/prisma/client').Prisma.TransactionClient,
+    ) => Promise<T>,
     transactionId: string,
     options?: TransactionOptions,
   ): Promise<T> {
@@ -259,7 +269,9 @@ export class TransactionService {
 
   async runMultipleTransactions<T>(
     transactions: Array<{
-      operations: (tx: import('@/generated/prisma/client').Prisma.TransactionClient) => Promise<T>;
+      operations: (
+        tx: import('@/generated/prisma/client').Prisma.TransactionClient,
+      ) => Promise<T>;
       options?: TransactionOptions;
     }>,
   ): Promise<T[]> {

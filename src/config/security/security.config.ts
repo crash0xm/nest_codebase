@@ -1,5 +1,11 @@
 import { registerAs } from '@nestjs/config';
-import { IsString, IsOptional, IsBoolean, IsArray, IsInt } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+  IsInt,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { SecurityConfig } from './security-config.type';
 import { validateConfig } from '@/common/utils/config/validate-config';
@@ -84,9 +90,11 @@ function parseAllowedOrigins(originsStr: string | undefined): string[] {
 }
 
 export default registerAs<SecurityConfig>('security', () => {
-  const validatedConfig = validateConfig(process.env, EnvironmentVariablesValidator, {
-    skipMissingProperties: true,
-  });
+  const validatedConfig = validateConfig(
+    process.env,
+    EnvironmentVariablesValidator,
+    { skipMissingProperties: true },
+  );
 
   const allowedOrigins = parseAllowedOrigins(validatedConfig.ALLOWED_ORIGINS);
   const allowedMethods = validatedConfig.ALLOWED_METHODS || [

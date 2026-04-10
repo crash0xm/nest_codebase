@@ -1,5 +1,7 @@
 import appConfig from './app.config';
 import { AppConfig } from './app-config.type';
+import { Test } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
 
 describe('AppConfig', () => {
   beforeEach(() => {
@@ -17,7 +19,16 @@ describe('AppConfig', () => {
     process.env.APP_NAME = 'NestJS SaaS';
     process.env.NODE_ENV = 'development';
     process.env.API_VERSION = '1';
-    process.env.SHUTDOWN_TIMEOUT_MS = '30000';
+
+    const module = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({
+          load: [appConfig],
+          isGlobal: true,
+          envFilePath: [], // Disable .env loading for test
+        }),
+      ],
+    }).compile();
 
     // Test the config function directly
     const config = (await appConfig()) as AppConfig;

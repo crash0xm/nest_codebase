@@ -44,7 +44,9 @@ export class EmailProcessor extends WorkerHost {
           break;
         case 'send-account-update-email':
           const updateData = job.data as SendAccountUpdateEmailJob;
-          result = await this.emailService.sendAccountUpdateEmail(updateData.email);
+          result = await this.emailService.sendAccountUpdateEmail(
+            updateData.email,
+          );
           break;
         default:
           this.logger.warn(`[Queue] Unknown job type: ${job.name}`);

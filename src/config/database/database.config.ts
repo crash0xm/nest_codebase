@@ -1,5 +1,11 @@
 import { registerAs } from '@nestjs/config';
-import { IsString, IsOptional, IsInt, IsBoolean, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+  IsNotEmpty,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { DatabaseConfig } from './database-config.type';
 import { validateConfig } from '@/common/utils/config/validate-config';

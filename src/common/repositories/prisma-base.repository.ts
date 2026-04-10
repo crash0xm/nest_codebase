@@ -8,7 +8,7 @@ import {
   buildPaginationMeta,
 } from '@/common/types/pagination.types';
 
-export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> {
+export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly logger: AppLoggerService,
@@ -17,7 +17,15 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     super();
   }
 
-  protected abstract getModel(): any;
+  protected abstract getModelDelegate(): {
+    findUnique(args: Record<string, unknown>): Promise<T | null>;
+    findMany(args?: Record<string, unknown>): Promise<T[]>;
+    count(args?: Record<string, unknown>): Promise<number>;
+    create(args: Record<string, unknown>): Promise<T>;
+    update(args: Record<string, unknown>): Promise<T>;
+    delete(args: Record<string, unknown>): Promise<void>;
+    findFirst(args?: Record<string, unknown>): Promise<T | null>;
+  };
 
   protected async executeWithLogging<R>(
     operation: string,
@@ -85,7 +93,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'findById',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         return model.findUnique({
           where: { id },
           ...options,
@@ -99,7 +107,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'findMany',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         return model.findMany({
           where,
           ...options,
@@ -117,7 +125,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'findManyWithPagination',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         const page = pagination?.page ?? 1;
         const limit = pagination?.limit ?? 10;
         const skip = (page - 1) * limit;
@@ -152,7 +160,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'create',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         return model.create({
           data,
           ...options,
@@ -166,7 +174,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'update',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         return model.update({
           where: { id },
           data,
@@ -191,7 +199,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'delete',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         await model.delete({
           where: { id },
         });
@@ -207,7 +215,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'findOne',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         return model.findFirst({
           where,
           ...options,
@@ -221,7 +229,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'count',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         return model.count({ where });
       },
       { where },
@@ -232,7 +240,7 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T, string> 
     return this.executeWithLogging(
       'exists',
       async () => {
-        const model = this.getModel();
+        const model = this.getModelDelegate();
         const result = await model.count({ where });
         return result > 0;
       },

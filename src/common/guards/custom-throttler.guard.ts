@@ -23,8 +23,7 @@ export class CustomThrottlerGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const response = context.switchToHttp().getResponse<FastifyReply>();
-    const throttlerConfig =
-      this.configService.get<ThrottlerConfig>('throttler');
+    const throttlerConfig = this.configService.get<ThrottlerConfig>('throttler');
 
     if (!throttlerConfig) {
       // If no config, allow by default
@@ -70,14 +69,8 @@ export class CustomThrottlerGuard implements CanActivate {
       // Set rate limit headers
       response.header('Retry-After', retryAfter.toString());
       response.header('X-RateLimit-Limit', limit.limit.toString());
-      response.header(
-        'X-RateLimit-Remaining',
-        Math.max(0, limit.limit - record.count).toString(),
-      );
-      response.header(
-        'X-RateLimit-Reset',
-        new Date(record.resetTime).toISOString(),
-      );
+      response.header('X-RateLimit-Remaining', Math.max(0, limit.limit - record.count).toString());
+      response.header('X-RateLimit-Reset', new Date(record.resetTime).toISOString());
 
       throw new HttpException(
         {

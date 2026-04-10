@@ -26,15 +26,20 @@ async function bootstrap(): Promise<void> {
   const shutdownTimeout = configService.get<number>('app.shutdownTimeout') || 30000;
   const apiVersion = configService.get<string>('app.apiVersion') || '1';
 
-  const corsOrigins = configService.get<string[]>('security.cors.allowedOrigins') || [];
+  const corsOrigins =
+    configService.get<string[]>('security.cors.allowedOrigins') || [];
   if (corsOrigins.includes('*')) {
     throw new Error(
       'CORS allowedOrigins cannot include "*" in production. Please specify explicit origins.',
     );
   }
-  const corsMethods = configService.get<string[]>('security.cors.allowedMethods') || ['GET'];
-  const corsHeaders = configService.get<string[]>('security.cors.allowedHeaders') || [];
-  const corsCredentials = configService.get<boolean>('security.cors.credentials') || false;
+  const corsMethods = configService.get<string[]>(
+    'security.cors.allowedMethods',
+  ) || ['GET'];
+  const corsHeaders =
+    configService.get<string[]>('security.cors.allowedHeaders') || [];
+  const corsCredentials =
+    configService.get<boolean>('security.cors.credentials') || false;
   const corsMaxAge = configService.get<number>('security.cors.maxAge') || 86400;
 
   const helmetCsp = configService.get<boolean>('security.helmet.contentSecurityPolicy') !== false;

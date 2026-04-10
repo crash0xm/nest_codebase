@@ -1,12 +1,7 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import {
-  ErrorType,
-  ErrorCode,
-  ErrorContext,
-  ErrorMetadata,
-  ErrorDetail,
-} from './error.types';
+import { ErrorType, ErrorCode, ErrorContext, ErrorMetadata, ErrorDetail } from './error.types';
 
+/* eslint-disable max-params */
 /* eslint-disable max-params */
 export class AppError extends HttpException {
   public readonly errorType: ErrorType;
@@ -82,9 +77,11 @@ export class AppError extends HttpException {
     message: string = 'Invalid input provided',
     field?: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     value?: any,
     context?: ErrorContext,
   ): AppError {
+    const details = field != null ? [{ field, message, value }] : undefined;
     const details = field != null ? [{ field, message, value }] : undefined;
     return new AppError(
       message,
@@ -95,10 +92,7 @@ export class AppError extends HttpException {
     );
   }
 
-  static unauthorized(
-    message: string = 'Unauthorized access',
-    context?: ErrorContext,
-  ): AppError {
+  static unauthorized(message: string = 'Unauthorized access', context?: ErrorContext): AppError {
     return new AppError(
       message,
       HttpStatus.UNAUTHORIZED,
@@ -108,10 +102,7 @@ export class AppError extends HttpException {
     );
   }
 
-  static forbidden(
-    message: string = 'Access forbidden',
-    context?: ErrorContext,
-  ): AppError {
+  static forbidden(message: string = 'Access forbidden', context?: ErrorContext): AppError {
     return new AppError(
       message,
       HttpStatus.FORBIDDEN,
@@ -174,9 +165,25 @@ export class AppError extends HttpException {
     );
   }
 
+  static badRequest(
+    message: string = 'Bad request',
+    details?: ErrorDetail[],
+    context?: ErrorContext,
+  ): AppError {
+    return new AppError(
+      message,
+      HttpStatus.BAD_REQUEST,
+      ErrorType.VALIDATION,
+      ErrorCode.INVALID_INPUT,
+      { context, details },
+    );
+  }
+
   static duplicateResource(
     resource: string,
     field: string,
+
+    value: unknown,
 
     value: unknown,
     context?: ErrorContext,
@@ -270,25 +277,15 @@ export class AppError extends HttpException {
     );
   }
 
-  static timeout(
-    operation: string,
-    timeoutMs: number,
-    context?: ErrorContext,
-  ): AppError {
+  static timeout(operation: string, timeoutMs: number, context?: ErrorContext): AppError {
     const message = `${operation} operation timed out after ${timeoutMs}ms`;
 
-    return new AppError(
-      message,
-      HttpStatus.REQUEST_TIMEOUT,
-      ErrorType.TIMEOUT,
-      ErrorCode.TIMEOUT,
-      {
-        context: {
-          ...context,
-          operation,
-          timeoutMs,
-        },
+    return new AppError(message, HttpStatus.REQUEST_TIMEOUT, ErrorType.TIMEOUT, ErrorCode.TIMEOUT, {
+      context: {
+        ...context,
+        operation,
+        timeoutMs,
       },
-    );
+    });
   }
 }

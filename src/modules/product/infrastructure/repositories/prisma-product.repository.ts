@@ -54,7 +54,9 @@ export class PrismaProductRepository
     });
 
     return {
-      data: result.data.map((product) => this.mapToDomain(product as unknown as Product)),
+      data: result.data.map((product) =>
+        this.mapToDomain(product as unknown as Product),
+      ),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -63,12 +65,17 @@ export class PrismaProductRepository
 
   async create(data: Record<string, unknown>): Promise<ProductEntity>;
   async create(data: CreateProductDto): Promise<ProductEntity>;
-  async create(data: Record<string, unknown> | CreateProductDto): Promise<ProductEntity> {
+  async create(
+    data: Record<string, unknown> | CreateProductDto,
+  ): Promise<ProductEntity> {
     const product = await super.create(data as Record<string, unknown>);
     return this.mapToDomain(product as unknown as Product);
   }
 
-  async update(id: string, data: Record<string, unknown>): Promise<ProductEntity>;
+  async update(
+    id: string,
+    data: Record<string, unknown>,
+  ): Promise<ProductEntity>;
   async update(id: string, data: UpdateProductDto): Promise<ProductEntity>;
   async update(
     id: string,

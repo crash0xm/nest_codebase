@@ -76,7 +76,10 @@ export class AuthController {
       },
     },
   })
-  async logout(@Req() req: any, @Body() body: { refreshToken?: string }): Promise<void> {
+  async logout(
+    @Req() req: any,
+    @Body() body: { refreshToken?: string },
+  ): Promise<void> {
     const { user } = req;
     // Revoking access token (blacklist) and refresh token
     await this.authService.logout(user.id, user.jti, body.refreshToken || '', {

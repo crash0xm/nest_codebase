@@ -111,7 +111,9 @@ export class AuthService {
         secret: this.authConf.refreshToken.secret,
       });
     } catch (e) {
-      this.logger.warn(`Refresh token verification failed: ${(e as Error).message}`);
+      this.logger.warn(
+        `Refresh token verification failed: ${(e as Error).message}`,
+      );
       throw new TokenRevokedError();
     }
 

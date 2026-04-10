@@ -12,7 +12,9 @@ export class EmailService {
   ) {}
 
   async send(to: string, subject: string, template: string): Promise<any> {
-    this.logger.log(`[Email] Sending email to ${to}: ${subject} (template: ${template})`);
+    this.logger.log(
+      `[Email] Sending email to ${to}: ${subject} (template: ${template})`,
+    );
     this.emailCounter.inc({ provider: 'simulated', status: 'success' });
     return { success: true, messageId: `msg-${Date.now()}` };
   }
