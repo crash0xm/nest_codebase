@@ -8,6 +8,8 @@ describe('AppConfig', () => {
     delete process.env.APP_PORT;
     delete process.env.APP_NAME;
     delete process.env.NODE_ENV;
+    delete process.env.API_VERSION;
+    delete process.env.SHUTDOWN_TIMEOUT_MS;
   });
 
   it('should load default config values', async () => {
@@ -15,6 +17,8 @@ describe('AppConfig', () => {
     process.env.APP_PORT = '3000';
     process.env.APP_NAME = 'NestJS SaaS';
     process.env.NODE_ENV = 'development';
+    process.env.API_VERSION = '1';
+    process.env.SHUTDOWN_TIMEOUT_MS = '30000';
 
     const module = await Test.createTestingModule({
       imports: [
