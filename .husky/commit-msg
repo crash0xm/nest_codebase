@@ -1,5 +1,3 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
 
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -8,8 +6,8 @@ NC='\033[0m'
 
 echo "${YELLOW}Validating commit message format...${NC}"
 
-# Run commitlint
-if ! pnpm dlx commitlint --edit "$1"; then
+# Run commitlint (now installed locally)
+if ! npx commitlint --edit "$1"; then
   echo "${RED}✗ Commit message validation failed${NC}"
   echo "${YELLOW}Commit message must follow Conventional Commits format:${NC}"
   echo "  <type>[optional scope]: <description>"

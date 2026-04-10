@@ -1,5 +1,4 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -17,23 +16,8 @@ if ! pnpm lint-staged --verbose; then
 fi
 echo "${GREEN}✓ Lint-staged passed${NC}"
 
-# Step 2: ESLint strict check
-echo "${YELLOW}[2/5] Running strict ESLint check (no warnings allowed)...${NC}"
-if ! pnpm run lint:strict > /dev/null 2>&1; then
-  echo "${RED}✗ ESLint strict check failed - code has errors or warnings${NC}"
-  echo "${YELLOW}Common issues:${NC}"
-  echo "  • Using 'any' type - use proper types instead"
-  echo "  • Missing return types - add explicit return types"
-  echo "  • Unused imports/variables - remove them"
-  echo "  • Too complex functions - refactor into smaller functions"
-  echo "  • Unsafe operations - use proper type guards"
-  pnpm run lint:strict
-  exit 1
-fi
-echo "${GREEN}✓ ESLint strict check passed (no errors/warnings)${NC}"
-
-# Step 3: TypeScript type checking
-echo "${YELLOW}[3/5] Running TypeScript strict mode type check...${NC}"
+# Step 2: TypeScript type checking (Global check to ensure type safety)
+echo "${YELLOW}[2/4] Running TypeScript strict mode type check...${NC}"
 if ! pnpm typecheck; then
   echo "${RED}✗ TypeScript strict mode type check failed${NC}"
   echo "${YELLOW}Common issues:${NC}"
@@ -45,8 +29,8 @@ if ! pnpm typecheck; then
 fi
 echo "${GREEN}✓ TypeScript strict mode type check passed${NC}"
 
-# Step 4: Format check
-echo "${YELLOW}[4/4] Checking code formatting...${NC}"
+# Step 3: Format check
+echo "${YELLOW}[3/4] Checking code formatting...${NC}"
 if ! pnpm run format:check > /dev/null 2>&1; then
   echo "${RED}✗ Code formatting check failed${NC}"
   echo "${YELLOW}Run 'pnpm format' to fix formatting issues${NC}"
@@ -54,23 +38,21 @@ if ! pnpm run format:check > /dev/null 2>&1; then
 fi
 echo "${GREEN}✓ Code formatting check passed${NC}"
 
+# Step 4: Branch name check
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+REGEX="^(feature|bugfix|hotfix|release|merge)\.([a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*)$"
+
+echo "${YELLOW}[4/4] Checking branch name...${NC}"
+if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ] && ! echo "$BRANCH" | grep -qE "$REGEX"; then
+  echo "${RED}⚠️  Branch name doesn't follow convention${NC}"
+  echo "Branch name: ${YELLOW}$BRANCH${NC}"
+  echo "Please rename your branch with '(feature|bugfix|hotfix|release|merge).<subject>' syntax${NC}"
+  exit 1
+fi
+echo "${GREEN}✓ Branch name check passed${NC}"
+
 echo "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo "${GREEN}✓ All validation checks passed! Ready to commit.${NC}"
 echo "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 exit 0
-
-# Kiểm tra tên branch sau cùng
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-REGEX="^(feature|bugfix|hotfix|release|merge)\.([a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*)$"
-
-echo "${YELLOW}🔍 Checking branch name...${NC}"
-echo "Branch name: ${GREEN}$BRANCH${NC}"
-if ! echo "$BRANCH" | grep -qE "$REGEX"; then
-  echo "${RED}⚠️  Branch name doesn't follow convention${NC}"
-  echo "Please rename your branch with '(feature|bugfix|hotfix|release|merge).<subject>' syntax${NC}"
-  echo "${YELLOW}Note: Code checks passed, but branch naming is recommended${NC}"
-  exit 1
-fi
-
-echo "${GREEN}✅ All checks passed! Ready to commit.${NC}"

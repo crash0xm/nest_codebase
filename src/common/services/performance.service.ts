@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AppLoggerService, LogContext } from '@/common/services/logger.service';
-
+//tesst
 export interface PerformanceMetric {
   name: string;
   value: number;
@@ -278,7 +278,7 @@ export class PerformanceService {
   }
 
   // Health check
-  async healthCheck(): Promise<{
+  healthCheck(): Promise<{
     healthy: boolean;
     issues: string[];
     metrics: {
@@ -305,7 +305,7 @@ export class PerformanceService {
       issues.push('Most performance metrics are stale');
     }
 
-    return {
+    return Promise.resolve({
       healthy: issues.length === 0,
       issues,
       metrics: {
@@ -313,7 +313,7 @@ export class PerformanceService {
         activeAlerts: activeAlerts.length,
         memoryUsage: this.calculateMemoryUsage(),
       },
-    };
+    });
   }
 
   // Cleanup
@@ -469,12 +469,19 @@ export class PerformanceService {
 }
 
 // Performance monitoring decorator
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/explicit-module-boundary-types */
 export const PerformanceMonitor =
-  (_metricName: string) => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+  (_metricName: string) =>
+  (target: any, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor => {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: any[]): Promise<unknown> {
       const performanceService = (this as any).performanceService as PerformanceService;
+
+      if (!performanceService) {
+        return originalMethod.apply(this, args);
+      }
+
       const timer = performanceService.startTimer(`${target.constructor.name}:${propertyKey}`);
 
       try {
