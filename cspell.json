@@ -12,7 +12,12 @@
     "setex",
     "throttler",
     "uuidv",
-    "willsoto"
+    "willsoto",
+    "dòng",
+    "chưa",
+    "không",
+    "tiếp",
+    "nhất"
   ],
   "ignorePaths": [
     "node_modules",
