@@ -1,17 +1,16 @@
-/* eslint-disable */
-/* eslint-disable @typescript-eslint/naming-convention */
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
  
-/* eslint-disable max-lines-per-function */
-/* eslint-disable complexity */
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+ 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
@@ -133,8 +132,7 @@ export function PasswordField(options?: {
       MaxLength(maxLength)(target, propertyKey);
     }
 
-    const pattern =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
     Matches(pattern)(target, propertyKey);
 
     const apiPropertyOptions = {
@@ -215,10 +213,7 @@ export function NumberField(options?: {
       IsPositive()(target, propertyKey);
     }
 
-    Transform(({ value }) => (value != null ? Number(value) : undefined))(
-      target,
-      propertyKey,
-    );
+    Transform(({ value }) => (value != null ? Number(value) : undefined))(target, propertyKey);
 
     const apiPropertyOptions = {
       description: options?.description ?? `${propertyKey} field`,
@@ -255,10 +250,7 @@ export function DecimalField(options?: {
       IsPositive()(target, propertyKey);
     }
 
-    Transform(({ value }) => (value != null ? Number(value) : undefined))(
-      target,
-      propertyKey,
-    );
+    Transform(({ value }) => (value != null ? Number(value) : undefined))(target, propertyKey);
 
     const apiPropertyOptions = {
       description: options?.description ?? `${propertyKey} field`,
