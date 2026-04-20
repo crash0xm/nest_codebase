@@ -85,7 +85,7 @@ import { UserModule } from '@modules/user/user.module';
           connection: {
             host: config.get('redis.host'),
             port: config.get('redis.port'),
-            password: config.get('redis.password') || undefined,
+            password: config.get('redis.password') ?? undefined,
           },
         };
       },
@@ -102,7 +102,7 @@ import { UserModule } from '@modules/user/user.module';
               host: config.get('redis.host'),
               port: config.get('redis.port'),
             },
-            password: config.get('redis.password') || undefined,
+            password: config.get('redis.password') ?? undefined,
           }),
           ttl: 60000, // 1 minute default
           keyPrefix: 'cache:',

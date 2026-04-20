@@ -6,7 +6,7 @@ import {
   MemoryHealthIndicator,
   DiskHealthIndicator,
 } from '@nestjs/terminus';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '@common/decorators/public.decorator';
 import { PrismaService } from '@modules/prisma/prisma.service';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
@@ -29,7 +29,7 @@ export class HealthController {
   @Get()
   @HealthCheck()
   @ApiOperation({ summary: 'Service health check' })
-  check() {
+  async check(): Promise<any> {
     this.healthCheckCounter.inc();
     return this.health.check([
       () => this.prismaIndicator.pingCheck('database', this.prisma),
@@ -45,15 +45,20 @@ export class HealthController {
   @Public()
   @Get('live')
   @ApiOperation({ summary: 'Kubernetes liveness probe' })
-  liveness(): { status: string } {
-    return { status: 'ok' };
+  @ApiResponse({ status: 200, description: 'Service is alive' })
+  async liveness(): Promise<{ status: string; timestamp: string }> {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Public()
   @Get('ready')
   @HealthCheck()
   @ApiOperation({ summary: 'Kubernetes readiness probe' })
-  async readiness() {
+  @ApiResponse({ status: 200, description: 'Service is ready' })
+  async readiness(): Promise<any> {
     return this.health.check([
       () => this.prismaIndicator.pingCheck('database', this.prisma),
       async () => {

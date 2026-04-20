@@ -8,6 +8,7 @@ import {
 } from '../../domain/repositories/user.repository.interface';
 import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { CacheKeys } from '@/constants/cache.constant';
+import { UserEntity } from '../../domain/entities/user.entity';
 
 @Injectable()
 export class UpdateUserUseCase {
@@ -20,13 +21,13 @@ export class UpdateUserUseCase {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async execute(id: string, dto: UpdateUserDto) {
+  async execute(id: string, data: UpdateUserDto): Promise<UserEntity> {
     const oldUser = await this.userRepo.findById(id);
     if (!oldUser) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    const updated = await this.userRepo.update(id, dto);
+    const updated = await this.userRepo.update(id, data);
 
     // Clear cache with tag-based invalidation
     try {
@@ -38,14 +39,14 @@ export class UpdateUserUseCase {
       ]);
     } catch (err) {
       this.logger.warn('Cache invalidation failed', { id, err });
-      // Không throw — tiếp tục
+      // Don't throw - continue
     }
 
     this.eventEmitter.emit('user.updated', {
       userId: updated.id,
       email: updated.email,
       fullName: updated.fullName,
-      changes: dto,
+      changes: data,
     });
 
     return updated;

@@ -96,7 +96,7 @@ export default registerAs<SecurityConfig>('security', () => {
     'DELETE',
     'PATCH',
   ];
-  const allowedHeaders = validatedConfig.ALLOWED_HEADERS || [
+  const allowedHeaders = validatedConfig.ALLOWED_HEADERS ?? [
     'Content-Type',
     'Authorization',
     'X-Request-ID',

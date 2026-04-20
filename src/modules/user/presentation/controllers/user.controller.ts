@@ -174,8 +174,8 @@ export class UserController {
     @Query() paginationParams: PaginationParams,
   ): Promise<BaseResponse<UsersResponse[]>> {
     const result = await this.getUsersUseCase.execute({
-      page: paginationParams.page || 1,
-      limit: paginationParams.limit || 10,
+      page: paginationParams.page ?? 1,
+      limit: paginationParams.limit ?? 10,
     });
 
     return {

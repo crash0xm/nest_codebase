@@ -9,11 +9,14 @@ import { DatabaseError } from '@/common/errors/infrastructure.error';
 export class PrismaErrorMapper {
   static toApplicationError(error: unknown, context: { entity: string; id?: string }): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      const errorCode = error.code;
+      const prismaError = error as Prisma.PrismaClientKnownRequestError;
+      const errorCode = prismaError.code;
+      const errorMeta = prismaError.meta;
+      
       switch (errorCode) {
         case 'P2002':
           throw new ConflictError(`${context.entity} already exists`, {
-            meta: error.meta,
+            meta: errorMeta,
           });
         case 'P2025':
           throw new NotFoundError(context.entity, context.id ?? 'unknown');

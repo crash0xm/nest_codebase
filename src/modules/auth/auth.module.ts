@@ -24,11 +24,15 @@ import { UserModule } from '../user/user.module';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
         const authConfig = configService.getOrThrow<AuthConfig>('auth');
+        
+        // Convert expiresIn string to number of seconds
+        const accessTokenExpiresIn = AuthModule.parseExpiresIn(authConfig.jwt.accessToken.expiresIn);
+        
         return {
           global: true,
           secret: authConfig.jwt.accessToken.secret,
           signOptions: {
-            expiresIn: authConfig.jwt.accessToken.expiresIn,
+            expiresIn: accessTokenExpiresIn,
           },
         };
       },
@@ -49,4 +53,29 @@ import { UserModule } from '../user/user.module';
   ],
   exports: [AuthService, INJECTION_TOKENS.TOKEN_STORE, AuthGuard],
 })
-export class AuthModule {}
+export class AuthModule {
+  private static parseExpiresIn(expiresIn: string | number): number {
+    // Handle common duration formats: "15m", "7d", "1h", etc.
+    if (typeof expiresIn === 'number') {
+      return expiresIn;
+    }
+    
+    const duration = expiresIn?.toString() || '15m';
+    const match = duration.match(/^(\d+)([smhd])$/);
+    
+    if (!match) {
+      return 900; // fallback 15 minutes
+    }
+    
+    const [, amount, unit] = match;
+    const value = parseInt(amount, 10);
+    
+    switch (unit) {
+      case 's': return value;
+      case 'm': return value * 60;
+      case 'h': return value * 3600;
+      case 'd': return value * 86400;
+      default: return 900; // fallback
+    }
+  }
+}

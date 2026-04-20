@@ -5,9 +5,9 @@ type EmailProps = {
   value: string;
 };
 
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-
 export class Email extends BaseValueObject<EmailProps> {
+  private static readonly EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
   private constructor(props: EmailProps) {
     super(props);
     this.validate(props);
@@ -18,7 +18,7 @@ export class Email extends BaseValueObject<EmailProps> {
   }
 
   protected validate(props: EmailProps): void {
-    if (!props.value || !EMAIL_REGEX.test(props.value)) {
+    if (!props.value || !Email.EMAIL_REGEX.test(props.value)) {
       throw new InvalidEmailError(props.value);
     }
     if (props.value.length > 255) {

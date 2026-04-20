@@ -21,7 +21,7 @@ export class RedisTokenStore implements ITokenStore, OnModuleDestroy {
   private readonly MAX_ACTIVE_SESSIONS = 5;
 
   constructor(configService: ConfigService, @Inject(REDIS_CLIENT) redisClient: Redis) {
-    this.keyPrefix = configService.get<string>('cache.keyPrefix') || 'cache:';
+    this.keyPrefix = configService.get<string>('cache.keyPrefix') ?? 'cache:';
 
     // Create separate Redis instance for token store with different DB
     this.redisTokenStore = redisClient.duplicate();
