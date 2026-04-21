@@ -20,8 +20,9 @@ import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
 import { CustomThrottlerGuard } from '@common/guards/custom-throttler.guard';
 import { AuthGuard } from '@common/guards/auth.guard';
-import { RolesGuard } from '@common/guards/roles.guard';
+import { AuthorizationGuard } from '@common/guards/authorization.guard';
 import { AppLoggerService } from '@common/services/logger.service';
+import { ResourceOwnershipService } from '@common/services/resource-ownership.service';
 
 import { HealthModule } from '@modules/health/health.module';
 import { MetricsModule } from '@modules/metrics/metrics.module';
@@ -42,10 +43,11 @@ import { UserModule } from '@modules/user/user.module';
 
     LoggerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const level = config.get<string>('LOG_LEVEL') || config.get('logger.level') || 'info';
-        const redactPaths = config.get('logger.redactPaths') || [];
-        const prettyPrint = config.get('logger.prettyPrint') !== 'false';
+      useFactory: (config: ConfigService): object => {
+        const level =
+          config.get<string>('LOG_LEVEL') ?? config.get<string>('logger.level') ?? 'info';
+        const redactPaths = config.get<string[]>('logger.redactPaths') ?? [];
+        const prettyPrint = config.get<string>('logger.prettyPrint') !== 'false';
 
         return {
           pinoHttp: {
@@ -65,7 +67,8 @@ import { UserModule } from '@modules/user/user.module';
                   options: { colorize: true, singleLine: true },
                 }
               : undefined,
-            genReqId: (req) => (req.headers['x-request-id'] as string | undefined) ?? randomUUID(),
+            genReqId: (req: { headers: Record<string, unknown> }): string =>
+              (req.headers['x-request-id'] as string | undefined) ?? randomUUID(),
           },
         };
       },
@@ -79,12 +82,12 @@ import { UserModule } from '@modules/user/user.module';
 
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
+      useFactory: (config: ConfigService): object => {
         return {
           connection: {
-            host: config.get('redis.host'),
-            port: config.get('redis.port'),
-            password: config.get('redis.password') || undefined,
+            host: config.get<string>('redis.host'),
+            port: config.get<number>('redis.port'),
+            password: config.get<string>('redis.password') ?? undefined,
           },
         };
       },
@@ -94,16 +97,16 @@ import { UserModule } from '@modules/user/user.module';
     CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],
-      useFactory: async (config: ConfigService) => {
+      useFactory: async (config: ConfigService): Promise<object> => {
         return {
           store: await redisStore({
             socket: {
-              host: config.get('redis.host'),
-              port: config.get('redis.port'),
+              host: config.get<string>('redis.host'),
+              port: config.get<number>('redis.port'),
             },
-            password: config.get('redis.password') || undefined,
+            password: config.get<string>('redis.password') ?? undefined,
           }),
-          ttl: 60000, // 1 minute default
+          ttl: 60000,
           keyPrefix: 'cache:',
         };
       },
@@ -124,15 +127,16 @@ import { UserModule } from '@modules/user/user.module';
   ],
   providers: [
     AppLoggerService,
+    ResourceOwnershipService,
 
     // Rate limiting - custom guard with configurable limits
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },
 
-    // Auth global - order is important
-    { provide: APP_GUARD, useExisting: AuthGuard },
+    // Global authentication
+    { provide: APP_GUARD, useClass: AuthGuard },
 
-    // RBAC global
-    { provide: APP_GUARD, useClass: RolesGuard },
+    // Global role + permission authorization
+    { provide: APP_GUARD, useClass: AuthorizationGuard },
 
     // Exception filter
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },

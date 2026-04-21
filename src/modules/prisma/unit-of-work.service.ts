@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from './prisma.service';
-import { DatabaseError } from '@/common/domain/errors/infrastructure.error';
+import { DatabaseError } from '@/common/errors/infrastructure.error';
 
 export type PrismaTransactionClient = Prisma.TransactionClient;
 export type TransactionCallback<T> = (tx: PrismaTransactionClient) => Promise<T>;
@@ -31,7 +31,7 @@ export class UnitOfWork {
       });
     } catch (error: unknown) {
       if (this.isPrismaKnownError(error)) {
-        throw new DatabaseError(`Transaction failed: ${error.code}`, error);
+        throw new DatabaseError(`Transaction failed: ${error.code as string}`, error);
       }
       throw new DatabaseError('Transaction failed with unknown error', error);
     }

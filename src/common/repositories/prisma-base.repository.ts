@@ -1,6 +1,7 @@
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { AppLoggerService, LogContext } from '@/common/services/logger.service';
-import { AppError } from '@/common/errors/app.error';
+import { ApplicationError } from '@/common/domain/errors/application.error';
+import { DatabaseError } from '@/common/errors/infrastructure.error';
 import { BaseRepository, QueryOptions } from './base.repository';
 import {
   PaginationOptions,
@@ -75,18 +76,11 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
       },
     );
 
-    if (error instanceof AppError) {
+    if (error instanceof ApplicationError || error instanceof DatabaseError) {
       throw error;
     }
 
-    throw AppError.databaseError(
-      `Database ${operation} failed for ${this.modelName}`,
-      error as Error,
-      {
-        modelName: this.modelName,
-        operation,
-      },
-    );
+    throw new DatabaseError(`${operation} failed for ${this.modelName}`, error);
   }
 
   async findById(id: string, options?: QueryOptions): Promise<T | null> {

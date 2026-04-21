@@ -7,13 +7,16 @@ import {
 import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { UserEntity } from '../../domain/entities/user.entity';
 import { ConflictError } from '@/common/domain/errors/application.error';
-import * as argon2 from 'argon2';
+import { IPasswordHasher, PASSWORD_HASHER } from '@/common/services/password-hasher.service';
+import { UserCreatedEvent } from '../../domain/events/user-created.event';
 
 @Injectable()
 export class CreateUserUseCase {
   constructor(
     @Inject(INJECTION_TOKENS.USER_REPOSITORY)
     private readonly userRepo: IUserRepository,
+    @Inject(PASSWORD_HASHER)
+    private readonly passwordHasher: IPasswordHasher,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -23,7 +26,7 @@ export class CreateUserUseCase {
       throw new ConflictError(`User with email ${dto.email} already exists`);
     }
 
-    const passwordHash = await argon2.hash(dto.password);
+    const passwordHash = await this.passwordHasher.hash(dto.password);
 
     const user = await this.userRepo.create({
       email: dto.email,
@@ -33,13 +36,10 @@ export class CreateUserUseCase {
       role: dto.role,
     });
 
-    // Emit event — listener sẽ push vào queue async
-    this.eventEmitter.emit('user.created', {
-      userId: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      createdAt: user.createdAt,
-    });
+    this.eventEmitter.emit(
+      'user.created',
+      new UserCreatedEvent(user.id, user.email, user.firstName, user.createdAt),
+    );
 
     return user;
   }

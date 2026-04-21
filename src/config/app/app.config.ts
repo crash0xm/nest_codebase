@@ -9,11 +9,11 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   NODE_ENV!: Environment;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @Min(0)
@@ -33,11 +33,11 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   API_VERSION!: string;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()

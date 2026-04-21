@@ -16,7 +16,7 @@ interface SendAccountUpdateEmailJob {
   userId: string;
   email: string;
   firstName: string;
-  changes: any;
+  changes: Record<string, unknown>;
 }
 
 @Processor(NOTIFICATION_QUEUE)
@@ -31,21 +31,23 @@ export class EmailProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<any> {
+  async process(job: Job): Promise<object | undefined> {
     const startTime = Date.now();
     this.logger.log(`[Queue] Processing job: ${job.id} type: ${job.name}`);
 
     try {
-      let result;
+      let result: object | undefined;
       switch (job.name) {
-        case NOTIFICATION_JOBS.SEND_WELCOME_EMAIL:
+        case NOTIFICATION_JOBS.SEND_WELCOME_EMAIL: {
           const welcomeData = job.data as SendWelcomeEmailJob;
           result = await this.emailService.sendWelcomeEmail(welcomeData.email);
           break;
-        case 'send-account-update-email':
+        }
+        case 'send-account-update-email': {
           const updateData = job.data as SendAccountUpdateEmailJob;
           result = await this.emailService.sendAccountUpdateEmail(updateData.email);
           break;
+        }
         default:
           this.logger.warn(`[Queue] Unknown job type: ${job.name}`);
       }

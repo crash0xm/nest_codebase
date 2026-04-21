@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaUserRepository } from './prisma-user.repository';
 import { PrismaService } from '@/modules/prisma/prisma.service';
+import { AppLoggerService } from '@/common/services/logger.service';
 
 describe('PrismaUserRepository', () => {
   let repository: PrismaUserRepository;
   let prisma: any;
+  let logger: any;
 
   beforeEach(async () => {
     prisma = {
@@ -17,9 +19,18 @@ describe('PrismaUserRepository', () => {
         delete: jest.fn(),
       },
     };
+    logger = {
+      startTimer: jest.fn().mockReturnValue(jest.fn()),
+      database: jest.fn(),
+      errorWithException: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PrismaUserRepository, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        PrismaUserRepository,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AppLoggerService, useValue: logger },
+      ],
     }).compile();
 
     repository = module.get<PrismaUserRepository>(PrismaUserRepository);

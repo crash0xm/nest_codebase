@@ -1,28 +1,36 @@
 import { Prisma } from '@/generated/prisma/client';
-import { AppError } from '@/common/errors/app.error';
+import {
+  ApplicationError,
+  ConflictError,
+  NotFoundError,
+} from '@/common/domain/errors/application.error';
+import { DatabaseError } from '@/common/errors/infrastructure.error';
 
 export class PrismaErrorMapper {
-  static toAppError(error: unknown, context: { entity: string; id?: string }): never {
+  static toApplicationError(error: unknown, context: { entity: string; id?: string }): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      const errorCode = error.code;
+      const prismaError = error;
+      const errorCode: string = prismaError.code;
+      const errorMeta: Record<string, unknown> =
+        (prismaError.meta as Record<string, unknown>) ?? {};
+
       switch (errorCode) {
         case 'P2002':
-          throw AppError.conflict(`${context.entity} already exists`, [
-            { code: 'ALREADY_EXISTS', value: error.meta },
-          ]);
+          throw new ConflictError(`${context.entity} already exists`, {
+            meta: errorMeta,
+          });
         case 'P2025':
-          throw AppError.notFound(
-            `${context.entity}${context.id != null ? ` [${context.id}]` : ''} not found`,
-          );
+          throw new NotFoundError(context.entity, context.id ?? 'unknown');
         case 'P2003':
-          throw AppError.badRequest(`Invalid reference in ${context.entity}`);
-        default:
-          throw AppError.databaseError(
-            `Database error [${errorCode}] for ${context.entity}`,
-            error,
+          throw new ApplicationError(
+            `Invalid reference in ${context.entity}`,
+            'INVALID_REFERENCE',
+            400,
           );
+        default:
+          throw new DatabaseError(`error [${errorCode}] for ${context.entity}`, error);
       }
     }
-    throw AppError.databaseError(`Unexpected error for ${context.entity}`, error as Error);
+    throw new DatabaseError(`Unexpected error for ${context.entity}`, error);
   }
 }

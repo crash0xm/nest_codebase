@@ -3,7 +3,9 @@ import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import {
   IUserRepository,
   PaginationOptions,
+  PaginatedResult,
 } from '../../domain/repositories/user.repository.interface';
+import { UserEntity } from '../../domain/entities/user.entity';
 
 @Injectable()
 export class GetUsersUseCase {
@@ -12,7 +14,7 @@ export class GetUsersUseCase {
     private readonly userRepository: IUserRepository,
   ) {}
 
-  async execute(options: PaginationOptions) {
+  async execute(options: PaginationOptions): Promise<PaginatedResult<UserEntity>> {
     return this.userRepository.findAll(options);
   }
 }

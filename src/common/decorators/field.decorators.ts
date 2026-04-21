@@ -17,7 +17,8 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-// String Field Decorator
+type PropertyDecorator = (target: object, propertyKey: string | symbol) => void;
+
 export function StringField(options?: {
   minLength?: number;
   maxLength?: number;
@@ -25,8 +26,8 @@ export function StringField(options?: {
   example?: string;
   required?: boolean;
   toLowerCase?: boolean;
-}) {
-  return function (target: any, propertyKey: string) {
+}): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     if (isRequired) {
@@ -44,11 +45,14 @@ export function StringField(options?: {
     }
 
     if (options?.toLowerCase) {
-      Transform(({ value }) => value?.toLowerCase?.trim())(target, propertyKey);
+      Transform(({ value }: { value: unknown }) => String(value)?.toLowerCase()?.trim())(
+        target,
+        propertyKey,
+      );
     }
 
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example: options?.example,
       minLength,
       maxLength,
@@ -63,13 +67,12 @@ export function StringField(options?: {
   };
 }
 
-// Email Field Decorator
 export function EmailField(options?: {
   description?: string;
   example?: string;
   required?: boolean;
-}) {
-  return function (target: any, propertyKey: string) {
+}): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     if (isRequired) {
@@ -78,11 +81,14 @@ export function EmailField(options?: {
 
     IsEmail()(target, propertyKey);
 
-    Transform(({ value }) => value?.toLowerCase?.trim())(target, propertyKey);
+    Transform(({ value }: { value: unknown }) => String(value)?.toLowerCase()?.trim())(
+      target,
+      propertyKey,
+    );
 
     const example = options?.example ?? 'user@example.com';
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example,
       format: 'email',
       required: isRequired,
@@ -96,15 +102,14 @@ export function EmailField(options?: {
   };
 }
 
-// Password Field Decorator
 export function PasswordField(options?: {
   minLength?: number;
   maxLength?: number;
   description?: string;
   example?: string;
   required?: boolean;
-}) {
-  return function (target: any, propertyKey: string) {
+}): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     if (isRequired) {
@@ -123,7 +128,7 @@ export function PasswordField(options?: {
     Matches(pattern)(target, propertyKey);
 
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example: options?.example ?? 'SecurePass123!',
       minLength,
       maxLength,
@@ -139,13 +144,12 @@ export function PasswordField(options?: {
   };
 }
 
-// UUID Field Decorator
 export function UUIDField(options?: {
   description?: string;
   example?: string;
   required?: boolean;
-}) {
-  return function (target: any, propertyKey: string) {
+}): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     if (isRequired) {
@@ -155,7 +159,7 @@ export function UUIDField(options?: {
     IsUUID('4')(target, propertyKey);
 
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example: options?.example ?? '550e8400-e29b-41d4-a716-446655440000',
       format: 'uuid',
       required: isRequired,
@@ -176,8 +180,8 @@ export function NumberField(options?: {
   example?: number;
   required?: boolean;
   positive?: boolean;
-}) {
-  return function (target: any, propertyKey: string) {
+}): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     if (isRequired) {
@@ -200,10 +204,13 @@ export function NumberField(options?: {
       IsPositive()(target, propertyKey);
     }
 
-    Transform(({ value }) => (value != null ? Number(value) : undefined))(target, propertyKey);
+    Transform(({ value }: { value: unknown }) => (value != null ? Number(value) : undefined))(
+      target,
+      propertyKey,
+    );
 
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example: options?.example,
       minimum: min,
       maximum: max,
@@ -223,8 +230,8 @@ export function DecimalField(options?: {
   example?: number;
   required?: boolean;
   positive?: boolean;
-}) {
-  return function (target: any, propertyKey: string) {
+}): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     if (isRequired) {
@@ -237,10 +244,13 @@ export function DecimalField(options?: {
       IsPositive()(target, propertyKey);
     }
 
-    Transform(({ value }) => (value != null ? Number(value) : undefined))(target, propertyKey);
+    Transform(({ value }: { value: unknown }) => (value != null ? Number(value) : undefined))(
+      target,
+      propertyKey,
+    );
 
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example: options?.example,
       required: isRequired,
     };
@@ -257,20 +267,20 @@ export function BooleanField(options?: {
   description?: string;
   example?: boolean;
   required?: boolean;
-}) {
-  return function (target: any, propertyKey: string) {
+}): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     IsBoolean()(target, propertyKey);
 
-    Transform(({ value }) => {
+    Transform(({ value }: { value: unknown }) => {
       if (value === 'true') return true;
       if (value === 'false') return false;
       return value;
     })(target, propertyKey);
 
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example: options?.example,
       required: isRequired,
     };
@@ -283,7 +293,7 @@ export function BooleanField(options?: {
   };
 }
 
-export function EnumField<T extends Record<string, any>>(
+export function EnumField<T extends Record<string, string>>(
   enumType: T,
   options?: {
     description?: string;
@@ -291,8 +301,8 @@ export function EnumField<T extends Record<string, any>>(
     required?: boolean;
     isArray?: boolean;
   },
-) {
-  return function (target: any, propertyKey: string) {
+): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     if (isRequired) {
@@ -308,7 +318,7 @@ export function EnumField<T extends Record<string, any>>(
 
     const enumValues = Object.values(enumType);
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example: options?.example ?? enumValues[0],
       enum: enumValues,
       required: isRequired,
@@ -327,8 +337,8 @@ export function DateField(options?: {
   description?: string;
   example?: string;
   required?: boolean;
-}) {
-  return function (target: any, propertyKey: string) {
+}): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
     const isRequired = options?.required !== false;
 
     if (isRequired) {
@@ -337,13 +347,13 @@ export function DateField(options?: {
 
     IsDateString()(target, propertyKey);
 
-    Transform(({ value }) => {
+    Transform(({ value }: { value: unknown }) => {
       if (value == null) return undefined;
-      return new Date(value);
+      return new Date(value as string | number | Date);
     })(target, propertyKey);
 
     const apiPropertyOptions = {
-      description: options?.description ?? `${propertyKey} field`,
+      description: options?.description ?? `${String(propertyKey)} field`,
       example: options?.example ?? '2023-01-01T00:00:00.000Z',
       format: 'date-time',
       required: isRequired,

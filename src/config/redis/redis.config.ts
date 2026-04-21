@@ -9,11 +9,11 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   CACHE_REDIS_HOST!: string;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()
@@ -23,27 +23,27 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   CACHE_REDIS_PASSWORD!: string;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()
   CACHE_REDIS_DB!: number;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()
   CACHE_REDIS_CONNECT_TIMEOUT!: number;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
@@ -54,11 +54,11 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   CACHE_REDIS_LAZY_CONNECT!: boolean;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()

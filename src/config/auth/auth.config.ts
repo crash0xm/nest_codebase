@@ -21,17 +21,17 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   AUTH_JWT_REFRESH_EXPIRES_IN!: string;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()
   AUTH_SESSION_MAX_ACTIVE!: number;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
@@ -42,17 +42,17 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   AUTH_SESSION_BLACKLIST_ENABLED!: boolean;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()
   AUTH_PASSWORD_MIN_LENGTH!: number;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
@@ -63,7 +63,7 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   AUTH_PASSWORD_REQUIRE_UPPERCASE!: boolean;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
@@ -74,7 +74,7 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   AUTH_PASSWORD_REQUIRE_LOWERCASE!: boolean;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
@@ -85,7 +85,7 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   AUTH_PASSWORD_REQUIRE_NUMBERS!: boolean;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
@@ -103,11 +103,11 @@ export default registerAs<AuthConfig>('auth', () => {
   return {
     jwt: {
       accessToken: {
-        secret: validatedConfig.AUTH_JWT_ACCESS_SECRET ?? '',
+        secret: validatedConfig.AUTH_JWT_ACCESS_SECRET,
         expiresIn: validatedConfig.AUTH_JWT_ACCESS_EXPIRES_IN ?? '15m',
       },
       refreshToken: {
-        secret: validatedConfig.AUTH_JWT_REFRESH_SECRET ?? '',
+        secret: validatedConfig.AUTH_JWT_REFRESH_SECRET,
         expiresIn: validatedConfig.AUTH_JWT_REFRESH_EXPIRES_IN ?? '7d',
       },
     },

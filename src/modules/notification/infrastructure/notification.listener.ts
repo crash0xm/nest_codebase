@@ -3,7 +3,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { NOTIFICATION_QUEUE, NOTIFICATION_JOBS } from '../notification.constants';
-import { UserCreatedEvent, UserUpdatedEvent } from '../../user/domain/events/user-events';
+import { UserCreatedEvent } from '../../user/domain/events/user-created.event';
+import { UserUpdatedEvent } from '../../user/domain/events/user-events';
 
 interface SendWelcomeEmailJob {
   userId: string;
@@ -15,7 +16,7 @@ interface SendAccountUpdateEmailJob {
   userId: string;
   email: string;
   firstName: string;
-  changes: any;
+  changes: Record<string, unknown>;
 }
 
 @Injectable()
@@ -25,7 +26,7 @@ export class NotificationListener {
   constructor(@InjectQueue(NOTIFICATION_QUEUE) private readonly notificationQueue: Queue) {}
 
   @OnEvent('user.created')
-  async handleUserCreated(event: UserCreatedEvent) {
+  async handleUserCreated(event: UserCreatedEvent): Promise<void> {
     this.logger.log(`[Notification] Enqueuing welcome email for ${event.email}`);
 
     const jobData: SendWelcomeEmailJob = {
@@ -43,7 +44,7 @@ export class NotificationListener {
   }
 
   @OnEvent('user.updated')
-  async handleUserUpdated(event: UserUpdatedEvent) {
+  async handleUserUpdated(event: UserUpdatedEvent): Promise<void> {
     this.logger.log(`[Notification] Enqueuing account update alert for ${event.email}`);
 
     const jobData: SendAccountUpdateEmailJob = {

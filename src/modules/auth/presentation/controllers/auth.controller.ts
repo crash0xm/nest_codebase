@@ -12,7 +12,6 @@ import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { AuthResponseDto } from '../dtos/auth-response.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { LocalAuthGuard } from '@/common/guards/local-auth.guard';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -27,10 +26,11 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.OK, type: AuthResponseDto })
   async login(@Req() req: any): Promise<AuthResponseDto> {
     const tokens = await this.authService.login(req.user);
+    const expiresIn = this.authService.getAccessTokenTtlSeconds();
 
     return {
       ...tokens,
-      expiresIn: 900, // 15 mins
+      expiresIn,
       user: {
         id: req.user.id,
         email: req.user.email,
@@ -47,10 +47,11 @@ export class AuthController {
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<AuthResponseDto> {
     const tokens = await this.authService.refreshTokens(refreshTokenDto.refreshToken);
     const payload = this.authService.decodePayload(tokens.accessToken);
+    const expiresIn = this.authService.getAccessTokenTtlSeconds();
 
     return {
       ...tokens,
-      expiresIn: 900,
+      expiresIn,
       user: {
         id: payload.sub,
         email: payload.email,
@@ -59,7 +60,6 @@ export class AuthController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()

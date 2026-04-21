@@ -8,13 +8,20 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { IS_OPTIONAL_KEY } from '../decorators/optional.decorator';
 import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import type { ITokenStore } from '@/modules/auth/infrastructure/token-store/redis-token-store';
+import { AuthConfig } from '@/config/auth/auth-config.type';
 
 interface AuthenticatedRequest extends FastifyRequest {
-  user?: any;
+  user?: {
+    sub: string;
+    email: string;
+    jti: string;
+  };
 }
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  private readonly authConfig: AuthConfig;
+
   constructor(
     private readonly reflector: Reflector,
     private readonly jwtService: JwtService,
@@ -22,7 +29,9 @@ export class AuthGuard implements CanActivate {
     // Add: inject token store to check blacklist
     @Inject(INJECTION_TOKENS.TOKEN_STORE)
     private readonly tokenStore: ITokenStore,
-  ) {}
+  ) {
+    this.authConfig = this.configService.getOrThrow<AuthConfig>('auth');
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -46,7 +55,7 @@ export class AuthGuard implements CanActivate {
 
     try {
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.get<string>('auth.jwt.accessToken.secret'),
+        secret: this.authConfig.jwt.accessToken.secret,
       });
 
       if (!payload.sub || !payload.email || !payload.jti) {
@@ -75,7 +84,7 @@ export class AuthGuard implements CanActivate {
     return context.switchToHttp().getRequest<AuthenticatedRequest>();
   }
 
-  private extractTokenFromRequest(request: any): string | undefined {
+  private extractTokenFromRequest(request: FastifyRequest): string | undefined {
     const authHeader = request.headers?.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       return authHeader.substring(7);

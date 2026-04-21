@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { AppLoggerService } from '@/common/services/logger.service';
-import { AppError } from '@/common/errors/app.error';
+import { ApplicationError } from '@/common/domain/errors/application.error';
 
 export interface TransactionOptions {
   timeout?: number;
@@ -94,9 +94,14 @@ export class TransactionService {
   ): Promise<T> {
     const context = this.activeTransactions.get(transactionId);
     if (!context) {
-      throw AppError.internalError(`Transaction context not found: ${transactionId}`, undefined, {
-        transactionId,
-      });
+      throw new ApplicationError(
+        `Transaction context not found: ${transactionId}`,
+        'INTERNAL_ERROR',
+        500,
+        {
+          transactionId,
+        },
+      );
     }
 
     const logOperation = (operation: string) => {
@@ -238,8 +243,9 @@ export class TransactionService {
     return new Promise((_, reject) => {
       setTimeout(() => {
         reject(
-          AppError.timeout(`Transaction timeout: ${transactionId}`, timeout, {
+          new ApplicationError(`Transaction timeout: ${transactionId}`, 'TIMEOUT', 408, {
             transactionId,
+            timeout,
           }),
         );
       }, timeout);
@@ -265,9 +271,10 @@ export class TransactionService {
     }
 
     if (errors.length > 0) {
-      throw AppError.internalError(
+      throw new ApplicationError(
         `Multiple transactions failed: ${errors.length} out of ${transactions.length}`,
-        undefined,
+        'INTERNAL_ERROR',
+        500,
         {
           totalTransactions: transactions.length,
           failedTransactions: errors.length,

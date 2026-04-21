@@ -1,5 +1,4 @@
 import appConfig from './app.config';
-import { AppConfig } from './app-config.type';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 
@@ -31,7 +30,7 @@ describe('AppConfig', () => {
     }).compile();
 
     // Test the config function directly
-    const config = (await appConfig()) as AppConfig;
+    const config = await appConfig();
 
     expect(config.nodeEnv).toBe('development');
     expect(config.port).toBe(3000);
@@ -47,7 +46,7 @@ describe('AppConfig', () => {
     process.env.APP_NAME = 'Custom App';
     process.env.NODE_ENV = 'production';
 
-    const config = (await appConfig()) as AppConfig;
+    const config = await appConfig();
 
     expect(config.port).toBe(4000);
     expect(config.name).toBe('Custom App');

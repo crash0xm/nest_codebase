@@ -3,9 +3,9 @@ import { ThrottlerConfig, ThrottlerEndpointConfig } from './throttler-config.typ
 
 export default registerAs<ThrottlerConfig>('throttler', () => {
   const defaultLimit = {
-    ttl: parseInt(process.env.THROTTLE_TTL_MS || '60000', 10),
-    limit: parseInt(process.env.THROTTLE_LIMIT || '100', 10),
-  };
+    ttl: parseInt(process.env.THROTTLE_TTL ?? '60', 10),
+    limit: parseInt(process.env.THROTTLE_LIMIT ?? '10', 10),
+  } as const;
 
   const authLimit = {
     ttl: 15 * 60 * 1000, // 15 minutes
@@ -43,12 +43,12 @@ export default registerAs<ThrottlerConfig>('throttler', () => {
 
   const endpoints: ThrottlerEndpointConfig[] = [...authEndpoints, ...publicEndpoints];
 
-  const whitelist = (process.env.THROTTLE_WHITELIST || '')
+  const whitelist = (process.env.THROTTLE_WHITELIST ?? '')
     .split(',')
     .map((ip) => ip.trim())
     .filter((ip) => ip.length > 0);
 
-  const storage = (process.env.THROTTLE_STORAGE || 'memory') as 'memory' | 'redis';
+  const storage = (process.env.THROTTLE_STORAGE ?? 'memory') as 'memory' | 'redis';
 
   return {
     default: defaultLimit,

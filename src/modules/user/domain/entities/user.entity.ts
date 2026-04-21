@@ -98,16 +98,12 @@ export class UserEntity extends BaseEntity {
     this.touch();
   }
 
-  async validatePassword(password: string): Promise<boolean> {
-    if (!this._passwordHash) return false;
-    const argon2 = await import('argon2');
-    return argon2.verify(this._passwordHash, password);
+  get passwordHash(): string | null | undefined {
+    return this._passwordHash;
   }
 
-  setPassword(password: string): void {
-    // This should be called from a domain service or factory
-    // For now, we'll keep it simple
-    this._passwordHash = password;
+  setPasswordHash(hash: string): void {
+    this._passwordHash = hash;
     this.touch();
   }
 

@@ -5,6 +5,7 @@ import { ClsService } from 'nestjs-cls';
 import { USER_REPOSITORY, INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { InvalidCredentialsError } from '@/common/domain/errors/application.error';
 import { createTestModule, PERFORMANCE_TOKENS } from '@/common/utils/test-helpers';
+import { PASSWORD_HASHER } from '@/common/services/password-hasher.service';
 
 // Mock uuid module
 jest.mock('uuid', () => ({
@@ -18,6 +19,7 @@ describe('AuthService', () => {
   let tokenStore: any;
   let configService: any;
   let cls: any;
+  let passwordHasher: any;
 
   beforeEach(async () => {
     userRepo = {
@@ -48,11 +50,15 @@ describe('AuthService', () => {
       set: jest.fn(),
       get: jest.fn().mockReturnValue('trace-id'),
     };
+    passwordHasher = {
+      verify: jest.fn(),
+    };
 
     const module = await createTestModule({
       providers: [
         AuthService,
         { provide: USER_REPOSITORY, useValue: userRepo },
+        { provide: PASSWORD_HASHER, useValue: passwordHasher },
         { provide: JwtService, useValue: jwtService },
         { provide: INJECTION_TOKENS.TOKEN_STORE, useValue: tokenStore },
         { provide: ConfigService, useValue: configService },
@@ -79,11 +85,12 @@ describe('AuthService', () => {
       const user = {
         id: '1',
         email: 'test@example.com',
-        validatePassword: jest.fn().mockResolvedValue(false),
+        passwordHash: 'hash',
         isActive: true,
         isDeleted: false,
       };
       userRepo.findByEmail.mockResolvedValue(user);
+      passwordHasher.verify.mockResolvedValue(false);
       await expect(service.validateUser('test@example.com', 'pw')).rejects.toThrow(
         InvalidCredentialsError,
       );
@@ -94,11 +101,12 @@ describe('AuthService', () => {
         id: '1',
         email: 'test@example.com',
         role: 'user',
-        validatePassword: jest.fn().mockResolvedValue(true),
+        passwordHash: 'hash',
         isActive: true,
         isDeleted: false,
       };
       userRepo.findByEmail.mockResolvedValue(user);
+      passwordHasher.verify.mockResolvedValue(true);
       const result = await service.validateUser('test@example.com', 'pw');
       expect(result.id).toBe('1');
     });

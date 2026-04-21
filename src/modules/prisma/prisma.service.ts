@@ -6,16 +6,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     super({
       accelerateUrl:
-        process.env.DATABASE_URL || 'postgresql://username:password@localhost:5432/database_name',
+        process.env.DATABASE_URL ?? 'postgresql://username:password@localhost:5432/database_name',
       errorFormat: 'pretty',
     });
   }
 
-  async onModuleInit() {
+  async onModuleInit(): Promise<void> {
     // Prisma v7+ connects automatically, no need to call $connect()
   }
 
-  async onModuleDestroy() {
+  async onModuleDestroy(): Promise<void> {
     // Prisma v7+ disconnects automatically, but you can still call it if needed
     await this.$disconnect();
   }

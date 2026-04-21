@@ -10,11 +10,11 @@ import {
   UpdateUserDto,
 } from '../../domain/repositories/user.repository.interface';
 import { PrismaService } from '@/modules/prisma/prisma.service';
+import { DatabaseError } from '@/common/errors/infrastructure.error';
 import {
   UserAlreadyExistsError,
   UserNotFoundException,
 } from '@/common/domain/errors/application.error';
-import { DatabaseError } from '@/common/domain/errors/infrastructure.error';
 
 @Injectable()
 export class PrismaUserRepository implements IUserRepository {
@@ -35,64 +35,45 @@ export class PrismaUserRepository implements IUserRepository {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
-      passwordHash: user.passwordHash,
+      passwordHash: user.passwordHash || null,
     });
   }
 
   async findByEmail(email: string): Promise<UserEntity | null> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
-      });
-      return user ? this.mapToDomain(user) : null;
-    } catch (error) {
-      throw new DatabaseError('findByEmail', error);
-    }
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+    return user ? this.mapToDomain(user) : null;
   }
 
   async findById(id: string): Promise<UserEntity | null> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id },
-      });
-      return user ? this.mapToDomain(user) : null;
-    } catch (error) {
-      throw new DatabaseError('findById', error);
-    }
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+    return user ? this.mapToDomain(user) : null;
   }
 
   async findAll(options: PaginationOptions): Promise<PaginatedResult<UserEntity>> {
-    try {
-      const { page, limit, sortBy = 'createdAt', sortOrder = 'desc' } = options;
-      const skip = (page - 1) * limit;
+    const where = { deletedAt: null, isActive: true };
+    const { page, limit, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+    const skip = (page - 1) * limit;
 
-      const [users, total] = await Promise.all([
-        this.prisma.user.findMany({
-          skip,
-          take: limit,
-          orderBy: { [sortBy]: sortOrder },
-          where: {
-            deletedAt: null, // Filter out soft-deleted users
-            isActive: true, // Only active users
-          },
-        }),
-        this.prisma.user.count({
-          where: {
-            deletedAt: null, // Filter out soft-deleted users
-            isActive: true, // Only active users
-          },
-        }),
-      ]);
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
 
-      return {
-        data: users.map((user: any) => this.mapToDomain(user)),
-        total,
-        page,
-        limit,
-      };
-    } catch (error) {
-      throw new DatabaseError('findAll', error);
-    }
+    return {
+      data: users.map((user) => this.mapToDomain(user)),
+      total,
+      page,
+      limit,
+    };
   }
 
   async create(data: CreateUserDto): Promise<UserEntity> {
@@ -110,39 +91,36 @@ export class PrismaUserRepository implements IUserRepository {
       });
       return this.mapToDomain(created);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error as any).code === 'P2002'
+      ) {
         throw new UserAlreadyExistsError(data.email);
       }
-      throw new DatabaseError('create', error);
+      throw new DatabaseError('create failed', error);
     }
   }
 
   async update(id: string, data: UpdateUserDto): Promise<UserEntity> {
     try {
-      const updateData: Record<string, unknown> = {
-        updatedAt: new Date(),
-      };
-
-      if (data.firstName != null) {
-        updateData.firstName = data.firstName;
-      }
-      if (data.lastName != null) {
-        updateData.lastName = data.lastName;
-      }
-      if (data.role != null) {
-        updateData.role = data.role;
-      }
-
       const updated = await this.prisma.user.update({
         where: { id },
-        data: updateData,
+        data: {
+          ...(data.firstName != null && { firstName: data.firstName }),
+          ...(data.lastName != null && { lastName: data.lastName }),
+          ...(data.role != null && { role: data.role }),
+          updatedAt: new Date(),
+        },
       });
       return this.mapToDomain(updated);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error as any).code === 'P2025'
+      ) {
         throw new UserNotFoundException(id);
       }
-      throw new DatabaseError('update', error);
+      throw new DatabaseError('update failed', error);
     }
   }
 
@@ -153,43 +131,20 @@ export class PrismaUserRepository implements IUserRepository {
         data: { deletedAt: new Date(), isActive: false },
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error as any).code === 'P2025'
+      ) {
         throw new UserNotFoundException(id);
       }
-      throw new DatabaseError('delete', error);
+      throw new DatabaseError('delete failed', error);
     }
   }
 
   async existsByEmail(email: string): Promise<boolean> {
-    try {
-      const count = await this.prisma.user.count({
-        where: { email: email.toLowerCase() },
-      });
-      return count > 0;
-    } catch (error) {
-      throw new DatabaseError('existsByEmail', error);
-    }
-  }
-
-  // Backward compatibility
-  async save(user: UserEntity): Promise<UserEntity> {
-    const exists = await this.findById(user.id);
-    if (exists) {
-      const snapshot = user.toSnapshot();
-      return this.update(user.id, {
-        firstName: snapshot.firstName,
-        lastName: snapshot.lastName,
-        role: snapshot.role,
-      });
-    }
-    const snapshot = user.toSnapshot();
-    const passwordHash = snapshot.passwordHash ?? '';
-    return this.create({
-      email: snapshot.email,
-      firstName: snapshot.firstName,
-      lastName: snapshot.lastName,
-      passwordHash,
-      role: snapshot.role,
+    const user = await this.prisma.user.findFirst({
+      where: { email: email.toLowerCase() },
     });
+    return !!user;
   }
 }

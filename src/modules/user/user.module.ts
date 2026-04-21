@@ -5,6 +5,7 @@ import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { MetricsModule } from '@modules/metrics/metrics.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { AppLoggerService } from '@common/services/logger.service';
+import { PasswordHasherService, PASSWORD_HASHER } from '@common/services/password-hasher.service';
 
 // Import use-cases
 import { CreateUserUseCase } from './application/use-cases/create-user.use-case';
@@ -18,6 +19,7 @@ import { DeleteUserUseCase } from './application/use-cases/delete-user.use-case'
   controllers: [UserController],
   providers: [
     AppLoggerService,
+    { provide: PASSWORD_HASHER, useClass: PasswordHasherService },
     // Repository binding - chỉ đổi 1 dòng này để swap DB
     {
       provide: INJECTION_TOKENS.USER_REPOSITORY,

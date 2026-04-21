@@ -20,7 +20,7 @@ export class CustomThrottlerGuard implements CanActivate {
 
   constructor(private configService: ConfigService) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const response = context.switchToHttp().getResponse<FastifyReply>();
     const throttlerConfig = this.configService.get<ThrottlerConfig>('throttler');
@@ -45,7 +45,7 @@ export class CustomThrottlerGuard implements CanActivate {
       return endpoint.pattern === path;
     });
 
-    const limit = endpointConfig?.limit || throttlerConfig.default;
+    const limit = endpointConfig?.limit ?? throttlerConfig.default;
     const key = `${clientIp}:${request.method}:${path}`;
 
     // In-memory throttling (can be extended to Redis)
@@ -91,6 +91,6 @@ export class CustomThrottlerGuard implements CanActivate {
       return forwarded.split(',')[0].trim();
     }
 
-    return request.ip || request.socket?.remoteAddress || 'unknown';
+    return request.ip ?? request.socket?.remoteAddress ?? 'unknown';
   }
 }

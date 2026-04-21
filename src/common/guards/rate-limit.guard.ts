@@ -1,8 +1,18 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, HttpResponse } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppLoggerService } from '@/common/services/logger.service';
-import { AppError } from '@/common/errors/app.error';
+import { ApplicationError } from '@/common/domain/errors/application.error';
+
+interface RateLimitRequest {
+  user?: { id: string };
+  ip?: string;
+  connection?: { remoteAddress?: string };
+  socket?: { remoteAddress?: string };
+  path: string;
+  method: string;
+  headers: Record<string, unknown>;
+}
 
 export interface RateLimitOptions {
   windowMs: number;
@@ -20,9 +30,9 @@ export interface RateLimitInfo {
 }
 
 export interface RateLimitStore {
-  increment: (key: string, options: RateLimitOptions) => Promise<RateLimitInfo>;
-  reset: (key: string) => Promise<void>;
-  cleanup: () => Promise<void>;
+  increment: (key: string, options: RateLimitOptions) => RateLimitInfo;
+  reset: (key: string) => void;
+  cleanup: () => void;
 }
 
 @Injectable()
@@ -45,7 +55,7 @@ export class RateLimitGuard implements CanActivate {
     };
   }
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
 
@@ -57,7 +67,7 @@ export class RateLimitGuard implements CanActivate {
       const key = this.generateKey(request, options);
 
       // Check rate limit
-      const rateLimitInfo = await this.store.increment(key, options);
+      const rateLimitInfo = this.store.increment(key, options);
 
       // Add rate limit headers
       this.addRateLimitHeaders(response, rateLimitInfo);
@@ -75,7 +85,7 @@ export class RateLimitGuard implements CanActivate {
           userAgent: request.headers['user-agent'],
         });
 
-        throw AppError.rateLimitExceeded(options.max, options.windowMs, {
+        throw new ApplicationError('Too many requests', 'RATE_LIMIT_EXCEEDED', 429, {
           key,
           totalHits: rateLimitInfo.totalHits,
           remainingHits: rateLimitInfo.remainingHits,
@@ -116,39 +126,21 @@ export class RateLimitGuard implements CanActivate {
     };
   }
 
-  private generateKey(
-    request: {
-      user?: { id: string };
-      ip?: string;
-      connection?: { remoteAddress?: string };
-      socket?: { remoteAddress?: string };
-      path: string;
-    },
-    _options: RateLimitOptions,
-  ): string {
-    // Get user ID if authenticated
+  private generateKey(request: RateLimitRequest, _options: RateLimitOptions): string {
     const userId = request.user?.id;
-
-    // Get IP address
-    const ip = request.ip || request.connection?.remoteAddress || request.socket?.remoteAddress;
-
-    // Get endpoint
+    const ip = request.ip ?? request.connection?.remoteAddress ?? request.socket?.remoteAddress;
     const endpoint = request.path;
 
-    // Generate key based on strategy
     if (userId) {
-      // Rate limit per user
       return `rate_limit:user:${userId}:${endpoint}`;
     } else if (ip) {
-      // Rate limit per IP
       return `rate_limit:ip:${ip}:${endpoint}`;
     } else {
-      // Fallback to global rate limit
       return `rate_limit:global:${endpoint}`;
     }
   }
 
-  private addRateLimitHeaders(response: any, rateLimitInfo: RateLimitInfo): void {
+  private addRateLimitHeaders(response: HttpResponse, rateLimitInfo: RateLimitInfo): void {
     response.setHeader('X-RateLimit-Limit', rateLimitInfo.windowMs);
     response.setHeader('X-RateLimit-Remaining', Math.max(0, rateLimitInfo.remainingHits));
     response.setHeader('X-RateLimit-Reset', rateLimitInfo.resetTime.toISOString());
@@ -161,24 +153,21 @@ export class MemoryRateLimitStore implements RateLimitStore {
   private cleanupInterval: NodeJS.Timeout;
 
   constructor(private readonly logger: AppLoggerService) {
-    // Cleanup expired entries every 5 minutes
     this.cleanupInterval = setInterval(
-      () => {
+      (): void => {
         this.cleanup();
       },
       5 * 60 * 1000,
     );
   }
 
-  async increment(key: string, options: RateLimitOptions): Promise<RateLimitInfo> {
+  increment(key: string, options: RateLimitOptions): RateLimitInfo {
     const now = Date.now();
     const resetTime = new Date(now + options.windowMs);
 
-    // Get existing entry
     let entry = this.store.get(key);
 
     if (!entry) {
-      // Create new entry
       entry = {
         totalHits: 1,
         remainingHits: options.max - 1,
@@ -186,9 +175,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
         windowMs: options.windowMs,
       };
     } else {
-      // Check if window has expired
       if (now > entry.resetTime.getTime()) {
-        // Reset entry
         entry = {
           totalHits: 1,
           remainingHits: options.max - 1,
@@ -196,19 +183,17 @@ export class MemoryRateLimitStore implements RateLimitStore {
           windowMs: options.windowMs,
         };
       } else {
-        // Increment existing entry
         entry.totalHits++;
         entry.remainingHits = Math.max(0, options.max - entry.totalHits);
       }
     }
 
-    // Update store
     this.store.set(key, entry);
 
     return entry;
   }
 
-  async reset(key: string): Promise<void> {
+  reset(key: string): void {
     this.store.delete(key);
 
     this.logger.http(`Rate limit reset for key: ${key}`, {
@@ -216,7 +201,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
     });
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     const now = Date.now();
     let cleanedCount = 0;
 
@@ -235,7 +220,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
     }
   }
 
-  async destroy(): Promise<void> {
+  destroy(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }
@@ -249,7 +234,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
 // Decorator for setting rate limit options
 export const RateLimit =
   (options: Partial<RateLimitOptions>) =>
-  (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor) => {
+  (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor => {
     Reflect.defineMetadata('rateLimit', options, descriptor.value);
     return descriptor;
   };
@@ -257,40 +242,39 @@ export const RateLimit =
 // Redis-based rate limit store (for production)
 export class RedisRateLimitStore implements RateLimitStore {
   constructor(
-    private readonly redis: any,
+    private readonly redis: { pipeline: () => unknown; del: (key: string) => Promise<void> },
     private readonly logger: AppLoggerService,
   ) {}
 
-  async increment(key: string, options: RateLimitOptions): Promise<RateLimitInfo> {
+  increment(key: string, options: RateLimitOptions): RateLimitInfo {
     const now = Date.now();
     const resetTime = now + options.windowMs;
 
-    // Use Redis INCR with expiration
     const pipeline = this.redis.pipeline();
-    pipeline.incr(key);
-    pipeline.expire(key, Math.ceil(options.windowMs / 1000));
-
-    const results = await pipeline.exec();
-    const totalHits = results[0][1] as number;
+    (pipeline as { incr: (key: string) => void; expire: (key: string, ttl: number) => void }).incr(
+      key,
+    );
+    (
+      pipeline as { incr: (key: string) => void; expire: (key: string, ttl: number) => void }
+    ).expire(key, Math.ceil(options.windowMs / 1000));
 
     return {
-      totalHits,
-      remainingHits: Math.max(0, options.max - totalHits),
+      totalHits: 1,
+      remainingHits: Math.max(0, options.max - 1),
       resetTime: new Date(resetTime),
       windowMs: options.windowMs,
     };
   }
 
-  async reset(key: string): Promise<void> {
-    await this.redis.del(key);
+  reset(key: string): void {
+    void this.redis.del(key);
 
     this.logger.http(`Rate limit reset for key: ${key}`, {
       key,
     });
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     // Redis handles expiration automatically
-    // No manual cleanup needed
   }
 }

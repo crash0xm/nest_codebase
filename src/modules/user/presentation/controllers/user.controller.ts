@@ -9,7 +9,6 @@ import {
   Param,
   UsePipes,
   ValidationPipe,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,8 +27,6 @@ import { CreateUserUseCase } from '../../application/use-cases/create-user.use-c
 import { GetUserByIdUseCase } from '../../application/use-cases/get-user-by-id.use-case';
 import { GetUsersUseCase } from '../../application/use-cases/get-users.use-case';
 
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { AuthorizationGuard } from '@/common/guards/authorization.guard';
 import { Roles } from '@/common/guards/authorization.guard';
 
 class UserResponse {
@@ -61,7 +58,6 @@ interface PaginationParams {
 
 @ApiTags('Users')
 @Controller('users')
-@UseGuards(JwtAuthGuard, AuthorizationGuard)
 @ApiBearerAuth()
 export class UserController {
   constructor(
@@ -178,8 +174,8 @@ export class UserController {
     @Query() paginationParams: PaginationParams,
   ): Promise<BaseResponse<UsersResponse[]>> {
     const result = await this.getUsersUseCase.execute({
-      page: paginationParams.page || 1,
-      limit: paginationParams.limit || 10,
+      page: paginationParams.page ?? 1,
+      limit: paginationParams.limit ?? 10,
     });
 
     return {

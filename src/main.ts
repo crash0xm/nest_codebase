@@ -20,22 +20,22 @@ async function bootstrap(): Promise<void> {
 
   const configService = app.get(ConfigService);
 
-  const port = configService.get<number>('app.port') || 3000;
-  const apiPrefix = configService.get<string>('app.apiPrefix') || 'api/v1';
-  const nodeEnv = configService.get<string>('app.nodeEnv') || 'development';
-  const shutdownTimeout = configService.get<number>('app.shutdownTimeout') || 30000;
-  const apiVersion = configService.get<string>('app.apiVersion') || '1';
+  const port = configService.get<number>('app.port') ?? 3000;
+  const apiPrefix = configService.get<string>('app.apiPrefix') ?? 'api/v1';
+  const nodeEnv = configService.get<string>('app.nodeEnv') ?? 'development';
+  const shutdownTimeout = configService.get<number>('app.shutdownTimeout') ?? 30000;
+  const apiVersion = configService.get<string>('app.apiVersion') ?? '1';
 
-  const corsOrigins = configService.get<string[]>('security.cors.allowedOrigins') || [];
+  const corsOrigins = configService.get<string[]>('security.cors.allowedOrigins') ?? [];
   if (corsOrigins.includes('*')) {
     throw new Error(
       'CORS allowedOrigins cannot include "*" in production. Please specify explicit origins.',
     );
   }
-  const corsMethods = configService.get<string[]>('security.cors.allowedMethods') || ['GET'];
-  const corsHeaders = configService.get<string[]>('security.cors.allowedHeaders') || [];
-  const corsCredentials = configService.get<boolean>('security.cors.credentials') || false;
-  const corsMaxAge = configService.get<number>('security.cors.maxAge') || 86400;
+  const corsMethods = configService.get<string[]>('security.cors.allowedMethods') ?? ['GET'];
+  const corsHeaders = configService.get<string[]>('security.cors.allowedHeaders') ?? [];
+  const corsCredentials = configService.get<boolean>('security.cors.credentials') ?? false;
+  const corsMaxAge = configService.get<number>('security.cors.maxAge') ?? 86400;
 
   const helmetCsp = configService.get<boolean>('security.helmet.contentSecurityPolicy') !== false;
   const helmetHsts = configService.get<boolean>('security.helmet.hsts') !== false;
@@ -120,10 +120,10 @@ async function bootstrap(): Promise<void> {
   // ── Graceful shutdown ────────────────────────────────────────────────────────
   app.enableShutdownHooks();
   (['SIGTERM', 'SIGINT'] as NodeJS.Signals[]).forEach((signal) => {
-    process.on(signal, async () => {
+    process.on(signal, (): void => {
       logger.log(`[${signal}] Shutting down gracefully (${shutdownTimeout}ms)...`);
       setTimeout(() => process.exit(1), shutdownTimeout).unref();
-      await app.close();
+      void app.close();
       process.exit(0);
     });
   });

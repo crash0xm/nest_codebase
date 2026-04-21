@@ -1,13 +1,9 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, Logger } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ConfigService } from '@nestjs/config';
-import { AppError } from '@/common/errors/app.error';
 import { ApplicationError } from '@/common/domain/errors/application.error';
-import { ErrorType } from '@/common/errors/error.types';
-import {
-  createErrorResponse,
-  createValidationErrorResponse,
-} from '@/common/interfaces/error-response.interface';
+import { DomainError } from '@/common/domain/errors/domain.error';
+import { InfrastructureError } from '@/common/errors/infrastructure.error';
 
 /**
  * 🔍 Global Exception Filter
@@ -41,16 +37,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private getErrorResponse(exception: unknown, request: FastifyRequest) {
     const requestId = request.headers['x-request-id'] as string | undefined;
     const traceId = request.headers['x-trace-id'] as string | undefined;
+    const errorLocation = this.shouldIncludeErrorLocation()
+      ? this.extractErrorLocation(exception)
+      : undefined;
 
-    // Priority: ApplicationError > AppError > HttpException > Unknown
     if (exception instanceof ApplicationError) {
       return {
         success: false,
         error: {
           code: exception.code,
-          type: 'APPLICATION',
           message: exception.message,
-          context: exception.context,
+          ...(exception.context ? { context: exception.context } : {}),
+          ...(errorLocation ? { location: errorLocation } : {}),
         },
         meta: {
           timestamp: new Date().toISOString(),
@@ -63,37 +61,49 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
-    // Handle AppError instances
-    if (exception instanceof AppError) {
-      const metadata = exception.getMetadata();
-
-      // Add request context
-      metadata.requestId = requestId;
-      metadata.traceId = traceId;
-      metadata.path = request.url;
-      metadata.method = request.method;
-
-      // Handle validation errors specially
-      if (exception.errorType === ErrorType.VALIDATION && exception.details) {
-        return createValidationErrorResponse(
-          metadata,
-          exception.details as Array<{
-            field: string;
-            message: string;
-            value?: any;
-          }>,
-        );
-      }
-
-      return createErrorResponse(metadata);
+    if (exception instanceof DomainError) {
+      return {
+        success: false,
+        error: {
+          code: exception.code,
+          message: exception.message,
+          ...(exception.context ? { context: exception.context } : {}),
+          ...(errorLocation ? { location: errorLocation } : {}),
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId,
+          traceId,
+          path: request.url,
+          method: request.method,
+          statusCode: 422,
+        },
+      };
     }
 
-    // Handle HttpException (including ValidationPipe errors)
+    if (exception instanceof InfrastructureError) {
+      return {
+        success: false,
+        error: {
+          code: exception.code,
+          message: 'Service temporarily unavailable',
+          ...(errorLocation ? { location: errorLocation } : {}),
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId,
+          traceId,
+          path: request.url,
+          method: request.method,
+          statusCode: 503,
+        },
+      };
+    }
+
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const response = exception.getResponse();
 
-      // Handle ValidationPipe errors
       if (this.isValidationError(response)) {
         const validationErrors = this.extractValidationErrors(response);
 
@@ -101,9 +111,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           success: false,
           error: {
             code: 'VALIDATION_FAILED',
-            type: 'VALIDATION',
             message: 'Validation failed',
             details: validationErrors,
+            ...(errorLocation ? { location: errorLocation } : {}),
           },
           meta: {
             timestamp: new Date().toISOString(),
@@ -123,8 +133,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         success: false,
         error: {
           code: this.getErrorCodeFromStatus(status),
-          type: this.getErrorTypeFromStatus(status),
           message,
+          ...(errorLocation ? { location: errorLocation } : {}),
         },
         meta: {
           timestamp: new Date().toISOString(),
@@ -137,7 +147,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
-    // Handle unexpected errors
     return this.createUnknownErrorResponse(exception, request);
   }
 
@@ -222,33 +231,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return statusCodes[status] || 'UNKNOWN_ERROR';
   }
 
-  private getErrorTypeFromStatus(status: number): string {
-    if (status >= 400 && status < 500) {
-      return 'CLIENT_ERROR';
-    }
-
-    if (status >= 500) {
-      return 'SERVER_ERROR';
-    }
-
-    return 'UNKNOWN';
-  }
-
   private createUnknownErrorResponse(exception: unknown, request: FastifyRequest) {
     const requestId = request.headers['x-request-id'] as string | undefined;
     const traceId = request.headers['x-trace-id'] as string | undefined;
     const isProduction = this.configService.get('app.nodeEnv') === 'production';
+    const errorLocation = this.shouldIncludeErrorLocation()
+      ? this.extractErrorLocation(exception)
+      : undefined;
 
     const baseResponse = {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        type: 'INTERNAL_SERVER',
         message: isProduction
           ? 'Internal server error'
           : exception instanceof Error
             ? exception.message
             : 'Unknown error',
+        ...(errorLocation ? { location: errorLocation } : {}),
       },
       meta: {
         timestamp: new Date().toISOString(),
@@ -292,7 +292,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       userAgent: request.headers['user-agent'],
       ip: request.ip,
       statusCode: errorResponse.meta.statusCode,
-      errorType: errorResponse.error.type,
       errorCode: errorResponse.error.code,
     };
 
@@ -311,5 +310,47 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         isProduction ? logContext : { ...logContext, exception },
       );
     }
+  }
+
+  private shouldIncludeErrorLocation(): boolean {
+    return this.configService.get('app.nodeEnv') !== 'production';
+  }
+
+  private extractErrorLocation(
+    exception: unknown,
+  ): { function?: string; file?: string; line?: number; column?: number } | undefined {
+    if (!(exception instanceof Error) || !exception.stack) {
+      return undefined;
+    }
+
+    const stackLines = exception.stack.split('\n').map((line) => line.trim());
+    const relevantStackLine = stackLines.find(
+      (line) => line.startsWith('at ') && !line.includes('global-exception.filter'),
+    );
+
+    if (!relevantStackLine) {
+      return undefined;
+    }
+
+    const withFunctionMatch = relevantStackLine.match(/^at\s+(.+?)\s+\((.+):(\d+):(\d+)\)$/);
+    if (withFunctionMatch) {
+      return {
+        function: withFunctionMatch[1],
+        file: withFunctionMatch[2],
+        line: Number(withFunctionMatch[3]),
+        column: Number(withFunctionMatch[4]),
+      };
+    }
+
+    const noFunctionMatch = relevantStackLine.match(/^at\s+(.+):(\d+):(\d+)$/);
+    if (noFunctionMatch) {
+      return {
+        file: noFunctionMatch[1],
+        line: Number(noFunctionMatch[2]),
+        column: Number(noFunctionMatch[3]),
+      };
+    }
+
+    return undefined;
   }
 }

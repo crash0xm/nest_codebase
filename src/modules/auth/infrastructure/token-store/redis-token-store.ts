@@ -21,11 +21,11 @@ export class RedisTokenStore implements ITokenStore, OnModuleDestroy {
   private readonly MAX_ACTIVE_SESSIONS = 5;
 
   constructor(configService: ConfigService, @Inject(REDIS_CLIENT) redisClient: Redis) {
-    this.keyPrefix = configService.get<string>('cache.keyPrefix') || 'cache:';
+    this.keyPrefix = configService.get<string>('cache.keyPrefix') ?? 'cache:';
 
     // Create separate Redis instance for token store with different DB
     this.redisTokenStore = redisClient.duplicate();
-    this.redisTokenStore.select(1); // separate DB from auth/tokens
+    void this.redisTokenStore.select(1);
 
     this.redisTokenStore.on('error', (err: Error) => {
       this.logger.error('Redis token store error:', err.message);

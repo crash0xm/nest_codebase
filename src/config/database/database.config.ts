@@ -9,7 +9,7 @@ class EnvironmentVariablesValidator {
   @IsNotEmpty()
   DATABASE_URL!: string;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
@@ -20,21 +20,21 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   DATABASE_SSL!: boolean;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()
   DATABASE_CONNECTION_TIMEOUT!: number;
 
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
       return undefined;
     }
-    return parseInt(value, 10);
+    return parseInt(String(value), 10);
   })
   @IsInt()
   @IsOptional()

@@ -16,12 +16,9 @@ import {
   InvalidTokenStructureError,
   TokenRevokedError,
 } from '@/common/domain/errors/application.error';
-
-export interface AuthConfig {
-  accessToken: { secret: string; expiresIn: string };
-  refreshToken: { secret: string; expiresIn: string };
-  tokenBlacklistTtlSeconds: number;
-}
+import { IPasswordHasher, PASSWORD_HASHER } from '@/common/services/password-hasher.service';
+import { AuthConfig } from '@/config/auth/auth-config.type';
+import { parseDurationToSeconds } from '@/common/utils/time/duration.util';
 const AUTH_CONFIG_KEY = 'auth';
 
 export interface JwtPayload {
@@ -54,6 +51,7 @@ export class AuthService {
 
   constructor(
     @Inject(USER_REPOSITORY) private readonly userRepository: IUserRepository,
+    @Inject(PASSWORD_HASHER) private readonly passwordHasher: IPasswordHasher,
     private readonly jwtService: JwtService,
     private readonly cls: ClsService<AppClsStore>,
     @Inject(INJECTION_TOKENS.TOKEN_STORE)
@@ -64,18 +62,7 @@ export class AuthService {
   ) {}
 
   private get authConf(): AuthConfig {
-    const auth = this.configService.get(AUTH_CONFIG_KEY);
-    return {
-      accessToken: auth?.jwt?.accessToken || {
-        secret: 'secret',
-        expiresIn: '15m',
-      },
-      refreshToken: auth?.jwt?.refreshToken || {
-        secret: 'secret',
-        expiresIn: '7d',
-      },
-      tokenBlacklistTtlSeconds: auth?.tokenBlacklistTtlSeconds || 604800,
-    };
+    return this.configService.getOrThrow<AuthConfig>(AUTH_CONFIG_KEY);
   }
 
   async validateUser(email: string, password: string): Promise<AuthUserPayload> {
@@ -85,7 +72,7 @@ export class AuthService {
     if (user.isDeleted) throw new AccountDeletedError(user.id);
     if (!user.isActive) throw new AccountInactiveError(user.id);
 
-    const isValid = await user.validatePassword(password);
+    const isValid = await this.passwordHasher.verify(user.passwordHash ?? '', password);
     if (!isValid) throw new InvalidCredentialsError();
 
     return {
@@ -108,7 +95,7 @@ export class AuthService {
     let payload: JwtPayload;
     try {
       payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
-        secret: this.authConf.refreshToken.secret,
+        secret: this.authConf.jwt.refreshToken.secret,
       });
     } catch (e) {
       this.logger.warn(`Refresh token verification failed: ${(e as Error).message}`);
@@ -189,24 +176,18 @@ export class AuthService {
           jti: accessTokenId,
         },
         {
-          secret: this.authConf.accessToken.secret,
-          expiresIn: this.authConf.accessToken.expiresIn,
+          secret: this.authConf.jwt.accessToken.secret,
+          expiresIn: this.authConf.jwt.accessToken.expiresIn,
         } as any,
       ),
       this.jwtService.signAsync({ sub: user.id, jti: refreshTokenId }, {
-        secret: this.authConf.refreshToken.secret,
-        expiresIn: this.authConf.refreshToken.expiresIn,
+        secret: this.authConf.jwt.refreshToken.secret,
+        expiresIn: this.authConf.jwt.refreshToken.expiresIn,
       } as any),
     ]);
 
-    // Store refresh token (TTL = 7 days)
-    // The store hashes it before saving
-    await this.tokenStore.save(
-      user.id,
-      refreshTokenId,
-      refreshToken,
-      604800, // 7 days in seconds
-    );
+    const refreshTokenTtlSeconds = this.getRefreshTokenTtlSeconds();
+    await this.tokenStore.save(user.id, refreshTokenId, refreshToken, refreshTokenTtlSeconds);
 
     this.sessionsGauge.inc();
 
@@ -219,5 +200,13 @@ export class AuthService {
     } catch {
       throw new InvalidTokenStructureError();
     }
+  }
+
+  getAccessTokenTtlSeconds(): number {
+    return parseDurationToSeconds(this.authConf.jwt.accessToken.expiresIn);
+  }
+
+  getRefreshTokenTtlSeconds(): number {
+    return parseDurationToSeconds(this.authConf.jwt.refreshToken.expiresIn);
   }
 }
