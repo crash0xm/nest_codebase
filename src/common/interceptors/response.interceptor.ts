@@ -1,30 +1,29 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { FastifyRequest } from 'fastify';
 import { BaseResponse, ResponseMeta } from '@/common/interfaces/base-response.interface';
 
 @Injectable()
-export class ResponseInterceptor<T = unknown> implements NestInterceptor<T, BaseResponse<T>> {
+export class ResponseInterceptor<T = unknown> implements NestInterceptor<unknown, BaseResponse<T>> {
   intercept(context: ExecutionContext, next: CallHandler): Observable<BaseResponse<T>> {
     const ctx = context.switchToHttp();
-    const request = ctx.getRequest();
+    const request = ctx.getRequest<FastifyRequest>();
 
     return next.handle().pipe(
-      map((data) => {
-        // If the response already has the expected format, return as-is
+      map((data): BaseResponse<T> => {
         if (data && typeof data === 'object' && 'success' in data) {
-          return data;
+          return data as BaseResponse<T>;
         }
 
-        // Otherwise, wrap it in the standard response format
         return {
           success: true,
-          data,
+          data: data as T,
           message: this.extractMessage(data),
           meta: {
             timestamp: new Date().toISOString(),
-            requestId: request['requestId'],
-            traceId: request['traceId'],
+            requestId: request.headers['x-request-id'] as string | undefined,
+            traceId: request.headers['x-trace-id'] as string | undefined,
             pagination: this.extractPagination(data),
           },
         };
@@ -33,18 +32,16 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor<T, Base
   }
 
   private extractMessage(data: unknown): string | undefined {
-    // Extract message from common response patterns
     if (data && typeof data === 'object') {
       const obj = data as Record<string, unknown>;
-      if (obj.message) return String(obj.message);
-      if (obj.msg) return String(obj.msg);
+      if ('message' in obj && typeof obj.message === 'string') return obj.message;
+      if ('msg' in obj && typeof obj.msg === 'string') return obj.msg;
     }
     if (typeof data === 'string') return data;
     return undefined;
   }
 
   private extractPagination(data: unknown): ResponseMeta['pagination'] {
-    // Extract pagination info if it exists
     if (data && typeof data === 'object') {
       const obj = data as Record<string, unknown>;
       if (obj.pagination) return obj.pagination as ResponseMeta['pagination'];

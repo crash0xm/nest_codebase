@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import type { FastifyRequest } from 'fastify';
 import { AppLoggerService } from '@/common/services/logger.service';
 import { ForbiddenError, UnauthorizedError } from '@/common/domain/errors/application.error';
 import { ResourceOwnershipService } from '@/common/services/resource-ownership.service';
@@ -20,14 +21,7 @@ export interface AuthUser {
   role: string;
 }
 
-export interface AuthRequest {
-  user?: AuthUser;
-  params: Record<string, string>;
-  path: string;
-  method: string;
-  ip: string;
-  headers: Record<string, unknown>;
-}
+export type AuthHttpRequest = FastifyRequest & { user?: AuthUser };
 
 export const ROLES = {
   ADMIN: 'ADMIN',
@@ -111,13 +105,13 @@ export class AuthorizationGuard implements CanActivate {
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthHttpRequest>();
     const { user } = request;
 
     // Check if user is authenticated
     if (!user) {
       this.logger.security('Unauthorized access attempt - no user found', {
-        path: request.path,
+        path: request.url,
         method: request.method,
         ip: request.ip,
         userAgent: request.headers['user-agent'],
@@ -147,7 +141,7 @@ export class AuthorizationGuard implements CanActivate {
           userId: user.id,
           userRole: user.role,
           requiredRoles,
-          path: request.path,
+          path: request.url,
           method: request.method,
           ip: request.ip,
         });
@@ -159,13 +153,13 @@ export class AuthorizationGuard implements CanActivate {
       if (
         requiredPermissions &&
         requiredPermissions.length > 0 &&
-        !this.hasRequiredPermissions(user as AuthUser, requiredPermissions, request as AuthRequest)
+        !this.hasRequiredPermissions(user, requiredPermissions, request)
       ) {
         this.logger.security('Access denied - insufficient permissions', {
           userId: user.id,
           userRole: user.role,
           requiredPermissions,
-          path: request.path,
+          path: request.url,
           method: request.method,
           ip: request.ip,
         });
@@ -179,7 +173,7 @@ export class AuthorizationGuard implements CanActivate {
         userRole: user.role,
         requiredRoles,
         requiredPermissions,
-        path: request.path,
+        path: request.url,
         method: request.method,
       });
 
@@ -187,7 +181,7 @@ export class AuthorizationGuard implements CanActivate {
     } catch (error) {
       this.logger.errorWithException('Authorization guard error', error as Error, undefined, {
         userId: user.id,
-        path: request.path,
+        path: request.url,
         method: request.method,
       });
 
@@ -205,7 +199,7 @@ export class AuthorizationGuard implements CanActivate {
   hasRequiredPermissions(
     user: AuthUser,
     requiredPermissions: string[],
-    request: AuthRequest,
+    request: AuthHttpRequest,
   ): boolean {
     return requiredPermissions.every((requiredPermission) => {
       const permission = this.parsePermission(requiredPermission);
@@ -218,12 +212,12 @@ export class AuthorizationGuard implements CanActivate {
     return { resource, action };
   }
 
-  checkPermission(user: AuthUser, permission: Permission, request: AuthRequest): boolean {
+  checkPermission(user: AuthUser, permission: Permission, request: AuthHttpRequest): boolean {
     if (user.role === ROLES.SUPER_ADMIN) {
       return true;
     }
 
-    const userPermissions = ROLE_PERMISSIONS[user.role] || [];
+    const userPermissions = ROLE_PERMISSIONS[user.role] ?? [];
 
     const matchedPermission = userPermissions.find(
       (userPermission) =>
@@ -242,7 +236,11 @@ export class AuthorizationGuard implements CanActivate {
     return true;
   }
 
-  private checkConditions(user: AuthUser, permission: Permission, request: AuthRequest): boolean {
+  private checkConditions(
+    user: AuthUser,
+    permission: Permission,
+    request: AuthHttpRequest,
+  ): boolean {
     if (!permission.conditions || permission.conditions.length === 0) {
       return true;
     }
@@ -257,8 +255,9 @@ export class AuthorizationGuard implements CanActivate {
     });
   }
 
-  private checkOwnership(user: AuthUser, resource: string, request: AuthRequest): boolean {
-    const resourceId = request.params.id ?? request.params.userId ?? request.params.productId;
+  private checkOwnership(user: AuthUser, resource: string, request: AuthHttpRequest): boolean {
+    const params = request.params as Record<string, string>;
+    const resourceId = params.id ?? params.userId ?? params.productId;
 
     if (!resourceId) {
       return false;
@@ -272,13 +271,19 @@ export class AuthorizationGuard implements CanActivate {
 export const Permissions =
   (...permissions: string[]) =>
   (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor => {
-    Reflect.defineMetadata('permissions', permissions, descriptor.value);
+    const handler: unknown = descriptor.value;
+    if (handler !== undefined) {
+      Reflect.defineMetadata('permissions', permissions, handler as object);
+    }
     return descriptor;
   };
 
 export const Roles =
   (...roles: string[]) =>
   (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor => {
-    Reflect.defineMetadata('roles', roles, descriptor.value);
+    const handler: unknown = descriptor.value;
+    if (handler !== undefined) {
+      Reflect.defineMetadata('roles', roles, handler as object);
+    }
     return descriptor;
   };

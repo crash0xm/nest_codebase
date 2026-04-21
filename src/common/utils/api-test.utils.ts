@@ -3,11 +3,18 @@ import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppLoggerService, LogContext } from '@/common/services/logger.service';
 
-export interface ApiTestResponse {
+export interface ApiTestResponse<T = unknown> {
   status: number;
-  data: any;
+  data: T;
   headers: Record<string, string>;
   cookies: Record<string, string>;
+}
+
+interface InjectResponse {
+  statusCode: number;
+  headers: Record<string, string | string[]>;
+  json: () => unknown;
+  payload?: unknown;
 }
 
 export class ApiTestClient {
@@ -24,23 +31,25 @@ export class ApiTestClient {
     this.baseUrl = `http://localhost:${this.configService.get('app.port', 3000)}`;
   }
 
-  async get(
+  async get<T = unknown>(
     endpoint: string,
     options?: {
       headers?: Record<string, string>;
-      query?: Record<string, any>;
+      query?: Record<string, unknown>;
     },
-  ): Promise<ApiTestResponse> {
+  ): Promise<ApiTestResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    await this.logger.trace(`API GET: ${url}`, LogContext.HTTP, {
+    this.logger.trace(`API GET: ${url}`, LogContext.HTTP, {
       method: 'GET',
       url,
       headers: options?.headers,
       query: options?.query,
     });
 
-    const response = await (this.app as any).inject({
+    const response = await (
+      (this.app as unknown) as { inject: (options: unknown) => Promise<InjectResponse> }
+    ).inject({
       method: 'GET',
       url,
       headers: {
@@ -50,20 +59,20 @@ export class ApiTestClient {
       query: options?.query,
     });
 
-    return this.formatResponse(response);
+    return this.formatResponse<T>(response);
   }
 
-  async post(
+  async post<T = unknown>(
     endpoint: string,
-    data?: any,
+    data?: T,
     options?: {
       headers?: Record<string, string>;
-      query?: Record<string, any>;
+      query?: Record<string, unknown>;
     },
-  ): Promise<ApiTestResponse> {
+  ): Promise<ApiTestResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    await this.logger.trace(`API POST: ${url}`, LogContext.HTTP, {
+    this.logger.trace(`API POST: ${url}`, LogContext.HTTP, {
       method: 'POST',
       url,
       data,
@@ -71,7 +80,9 @@ export class ApiTestClient {
       query: options?.query,
     });
 
-    const response = await (this.app as any).inject({
+    const response = await (
+      (this.app as unknown) as { inject: (options: unknown) => Promise<InjectResponse> }
+    ).inject({
       method: 'POST',
       url,
       headers: {
@@ -82,20 +93,20 @@ export class ApiTestClient {
       payload: data,
     });
 
-    return this.formatResponse(response);
+    return this.formatResponse<T>(response);
   }
 
-  async put(
+  async put<T = unknown>(
     endpoint: string,
-    data?: any,
+    data?: T,
     options?: {
       headers?: Record<string, string>;
-      query?: Record<string, any>;
+      query?: Record<string, unknown>;
     },
-  ): Promise<ApiTestResponse> {
+  ): Promise<ApiTestResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    await this.logger.trace(`API PUT: ${url}`, LogContext.HTTP, {
+    this.logger.trace(`API PUT: ${url}`, LogContext.HTTP, {
       method: 'PUT',
       url,
       data,
@@ -103,7 +114,9 @@ export class ApiTestClient {
       query: options?.query,
     });
 
-    const response = await (this.app as any).inject({
+    const response = await (
+      (this.app as unknown) as { inject: (options: unknown) => Promise<InjectResponse> }
+    ).inject({
       method: 'PUT',
       url,
       headers: {
@@ -114,20 +127,20 @@ export class ApiTestClient {
       payload: data,
     });
 
-    return this.formatResponse(response);
+    return this.formatResponse<T>(response);
   }
 
-  async patch(
+  async patch<T = unknown>(
     endpoint: string,
-    data?: any,
+    data?: T,
     options?: {
       headers?: Record<string, string>;
-      query?: Record<string, any>;
+      query?: Record<string, unknown>;
     },
-  ): Promise<ApiTestResponse> {
+  ): Promise<ApiTestResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    await this.logger.trace(`API PATCH: ${url}`, LogContext.HTTP, {
+    this.logger.trace(`API PATCH: ${url}`, LogContext.HTTP, {
       method: 'PATCH',
       url,
       data,
@@ -135,7 +148,9 @@ export class ApiTestClient {
       query: options?.query,
     });
 
-    const response = await (this.app as any).inject({
+    const response = await (
+      (this.app as unknown) as { inject: (options: unknown) => Promise<InjectResponse> }
+    ).inject({
       method: 'PATCH',
       url,
       headers: {
@@ -146,26 +161,28 @@ export class ApiTestClient {
       payload: data,
     });
 
-    return this.formatResponse(response);
+    return this.formatResponse<T>(response);
   }
 
-  async delete(
+  async delete<T = unknown>(
     endpoint: string,
     options?: {
       headers?: Record<string, string>;
-      query?: Record<string, any>;
+      query?: Record<string, unknown>;
     },
-  ): Promise<ApiTestResponse> {
+  ): Promise<ApiTestResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    await this.logger.trace(`API DELETE: ${url}`, LogContext.HTTP, {
+    this.logger.trace(`API DELETE: ${url}`, LogContext.HTTP, {
       method: 'DELETE',
       url,
       headers: options?.headers,
       query: options?.query,
     });
 
-    const response = await (this.app as any).inject({
+    const response = await (
+      (this.app as unknown) as { inject: (options: unknown) => Promise<InjectResponse> }
+    ).inject({
       method: 'DELETE',
       url,
       headers: {
@@ -175,7 +192,7 @@ export class ApiTestClient {
       query: options?.query,
     });
 
-    return this.formatResponse(response);
+    return this.formatResponse<T>(response);
   }
 
   setAuth(token: string): void {
@@ -192,11 +209,11 @@ export class ApiTestClient {
       .join('; ');
   }
 
-  private formatResponse(response: any): ApiTestResponse {
+  private formatResponse<T>(response: InjectResponse): ApiTestResponse<T> {
     const headers: Record<string, string> = {};
     if (response.headers) {
       Object.entries(response.headers).forEach(([key, value]) => {
-        headers[key] = value as string;
+        headers[key] = Array.isArray(value) ? value.join(',') : (value ?? '');
       });
     }
 
@@ -205,7 +222,7 @@ export class ApiTestClient {
     if (setCookieHeader) {
       const cookieStrings = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
       cookieStrings.forEach((cookieString: string) => {
-        const [name] = cookieString.split('=')[0];
+        const [name] = cookieString.split('=');
         if (name) {
           cookies[name] = cookieString;
         }
@@ -214,7 +231,7 @@ export class ApiTestClient {
 
     return {
       status: response.statusCode,
-      data: response.json ? response.json() : response.payload,
+      data: (response.json ? response.json() : response.payload) as T,
       headers,
       cookies,
     };
@@ -222,53 +239,57 @@ export class ApiTestClient {
 }
 
 export class ApiTestAssertions {
-  static assertStatus(response: ApiTestResponse, expectedStatus: number, message?: string): void {
+  static assertStatus<T>(
+    response: ApiTestResponse<T>,
+    expectedStatus: number,
+    message?: string,
+  ): void {
     if (response.status !== expectedStatus) {
-      throw new Error(message || `Expected status ${expectedStatus}, but got ${response.status}`);
+      throw new Error(message ?? `Expected status ${expectedStatus}, but got ${response.status}`);
     }
   }
 
   static assertSuccess(response: ApiTestResponse, message?: string): void {
-    this.assertStatus(response, 200, message || 'Expected success response');
+    this.assertStatus(response, 200, message ?? 'Expected success response');
   }
 
   static assertCreated(response: ApiTestResponse, message?: string): void {
-    this.assertStatus(response, 201, message || 'Expected created response');
+    this.assertStatus(response, 201, message ?? 'Expected created response');
   }
 
   static assertBadRequest(response: ApiTestResponse, message?: string): void {
-    this.assertStatus(response, 400, message || 'Expected bad request response');
+    this.assertStatus(response, 400, message ?? 'Expected bad request response');
   }
 
   static assertUnauthorized(response: ApiTestResponse, message?: string): void {
-    this.assertStatus(response, 401, message || 'Expected unauthorized response');
+    this.assertStatus(response, 401, message ?? 'Expected unauthorized response');
   }
 
   static assertForbidden(response: ApiTestResponse, message?: string): void {
-    this.assertStatus(response, 403, message || 'Expected forbidden response');
+    this.assertStatus(response, 403, message ?? 'Expected forbidden response');
   }
 
   static assertNotFound(response: ApiTestResponse, message?: string): void {
-    this.assertStatus(response, 404, message || 'Expected not found response');
+    this.assertStatus(response, 404, message ?? 'Expected not found response');
   }
 
   static assertConflict(response: ApiTestResponse, message?: string): void {
-    this.assertStatus(response, 409, message || 'Expected conflict response');
+    this.assertStatus(response, 409, message ?? 'Expected conflict response');
   }
 
-  static assertDataStructure(
-    response: ApiTestResponse,
-    expectedStructure: any,
+  static assertDataStructure<T>(
+    response: ApiTestResponse<T>,
+    expectedStructure: T,
     message?: string,
   ): void {
     if (!this.matchesStructure(response.data, expectedStructure)) {
-      throw new Error(message || `Response data structure does not match expected structure`);
+      throw new Error(message ?? 'Response data structure does not match expected structure');
     }
   }
 
-  static assertContains(
-    response: ApiTestResponse,
-    expectedValue: any,
+  static assertContains<T>(
+    response: ApiTestResponse<T>,
+    expectedValue: unknown,
     path?: string,
     message?: string,
   ): void {
@@ -276,7 +297,9 @@ export class ApiTestAssertions {
 
     if (!this.containsValue(actualValue, expectedValue)) {
       const pathInfo = path ? ` at path "${path}"` : '';
-      throw new Error(message || `Expected response to contain ${expectedValue}${pathInfo}`);
+      throw new Error(
+        message ?? `Expected response to contain ${JSON.stringify(expectedValue)}${pathInfo}`,
+      );
     }
   }
 
@@ -289,12 +312,12 @@ export class ApiTestAssertions {
     const actualValue = response.headers[headerName.toLowerCase()];
     if (actualValue !== expectedValue) {
       throw new Error(
-        message || `Expected header ${headerName} to be ${expectedValue}, but got ${actualValue}`,
+        message ?? `Expected header ${headerName} to be ${expectedValue}, but got ${actualValue}`,
       );
     }
   }
 
-  private static matchesStructure(actual: any, expected: any): boolean {
+  private static matchesStructure<T>(actual: T, expected: T): boolean {
     if (typeof actual !== typeof expected) {
       return false;
     }
@@ -303,12 +326,17 @@ export class ApiTestAssertions {
       return actual === expected;
     }
 
-    for (const key in expected) {
+    for (const key in expected as object) {
       if (!(key in actual)) {
         return false;
       }
 
-      if (!this.matchesStructure(actual[key], expected[key])) {
+      if (
+        !this.matchesStructure(
+          (actual as Record<string, unknown>)[key],
+          (expected as Record<string, unknown>)[key],
+        )
+      ) {
         return false;
       }
     }
@@ -316,7 +344,7 @@ export class ApiTestAssertions {
     return true;
   }
 
-  private static containsValue(actual: any, expected: any): boolean {
+  private static containsValue(actual: unknown, expected: unknown): boolean {
     if (typeof expected === 'string' && typeof actual === 'string') {
       return actual.includes(expected);
     }
@@ -325,9 +353,19 @@ export class ApiTestAssertions {
       return expected.every((item) => actual.includes(item));
     }
 
-    if (typeof expected === 'object' && typeof actual === 'object') {
+    if (
+      typeof expected === 'object' &&
+      typeof actual === 'object' &&
+      actual !== null &&
+      expected !== null
+    ) {
       for (const key in expected) {
-        if (!this.containsValue(actual[key], expected[key])) {
+        if (
+          !this.containsValue(
+            (actual as Record<string, unknown>)[key],
+            (expected as Record<string, unknown>)[key],
+          )
+        ) {
           return false;
         }
       }
@@ -337,8 +375,10 @@ export class ApiTestAssertions {
     return actual === expected;
   }
 
-  private static getNestedValue(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
+  private static getNestedValue<T>(obj: T, path: string): unknown {
+    return path
+      .split('.')
+      .reduce((current: any, key: string) => current?.[key], obj) as unknown;
   }
 }
 
@@ -351,17 +391,17 @@ export class TestModuleBuilder {
     return new TestModuleBuilder();
   }
 
-  withImport(importModule: any): TestModuleBuilder {
+  withImport(importModule: unknown): TestModuleBuilder {
     this.imports.push(importModule);
     return this;
   }
 
-  withProvider(provider: any): TestModuleBuilder {
+  withProvider(provider: unknown): TestModuleBuilder {
     this.providers.push(provider);
     return this;
   }
 
-  withController(controller: any): TestModuleBuilder {
+  withController(controller: unknown): TestModuleBuilder {
     this.controllers.push(controller);
     return this;
   }

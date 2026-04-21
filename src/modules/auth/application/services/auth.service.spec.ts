@@ -6,6 +6,7 @@ import { USER_REPOSITORY, INJECTION_TOKENS } from '@/constants/injection-tokens'
 import { InvalidCredentialsError } from '@/common/domain/errors/application.error';
 import { createTestModule, PERFORMANCE_TOKENS } from '@/common/utils/test-helpers';
 import { PASSWORD_HASHER } from '@/common/services/password-hasher.service';
+import { Role } from '@/modules/user/domain/enums/role.enum';
 
 // Mock uuid module
 jest.mock('uuid', () => ({
@@ -14,12 +15,18 @@ jest.mock('uuid', () => ({
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userRepo: any;
-  let jwtService: any;
-  let tokenStore: any;
-  let configService: any;
-  let cls: any;
-  let passwordHasher: any;
+  let userRepo: { findByEmail: jest.Mock; findById: jest.Mock };
+  let jwtService: { signAsync: jest.Mock; verifyAsync: jest.Mock; decode: jest.Mock };
+  let tokenStore: {
+    save: jest.Mock;
+    verify: jest.Mock;
+    revoke: jest.Mock;
+    revokeAll: jest.Mock;
+    blacklistAccessToken: jest.Mock;
+  };
+  let configService: { get: jest.Mock };
+  let cls: { set: jest.Mock; get: jest.Mock };
+  let passwordHasher: { verify: jest.Mock };
 
   beforeEach(async () => {
     userRepo = {
@@ -118,7 +125,7 @@ describe('AuthService', () => {
       const user = {
         id: '1',
         email: 'test@example.com',
-        role: 'user' as any,
+        role: Role.USER,
         isActive: true,
       };
 

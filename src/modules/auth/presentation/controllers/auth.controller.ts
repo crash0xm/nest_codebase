@@ -1,4 +1,5 @@
 import { Body, Controller, Post, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import { FastifyRequest } from 'fastify';
 import {
   ApiTags,
   ApiOperation,
@@ -12,6 +13,20 @@ import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { AuthResponseDto } from '../dtos/auth-response.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { LocalAuthGuard } from '@/common/guards/local-auth.guard';
+import type { AuthUserPayload } from '../../application/services/auth.service';
+import type { Role } from '@/modules/user/domain/enums/role.enum';
+
+type LoginRequest = FastifyRequest & { user: AuthUserPayload };
+
+type JwtAttachedUser = {
+  id: string;
+  email: string;
+  role: Role;
+  jti: string;
+  exp?: number;
+};
+
+type LogoutRequest = FastifyRequest & { user: JwtAttachedUser };
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -24,7 +39,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: HttpStatus.OK, type: AuthResponseDto })
-  async login(@Req() req: any): Promise<AuthResponseDto> {
+  async login(@Req() req: LoginRequest): Promise<AuthResponseDto> {
     const tokens = await this.authService.login(req.user);
     const expiresIn = this.authService.getAccessTokenTtlSeconds();
 
@@ -76,10 +91,10 @@ export class AuthController {
       },
     },
   })
-  async logout(@Req() req: any, @Body() body: { refreshToken?: string }): Promise<void> {
+  async logout(@Req() req: LogoutRequest, @Body() body: { refreshToken?: string }): Promise<void> {
     const { user } = req;
     // Revoking access token (blacklist) and refresh token
-    await this.authService.logout(user.id, user.jti, body.refreshToken || '', {
+    await this.authService.logout(user.id, user.jti, body.refreshToken ?? '', {
       exp: user.exp,
     });
   }

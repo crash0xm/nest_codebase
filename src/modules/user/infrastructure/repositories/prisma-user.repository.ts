@@ -91,10 +91,7 @@ export class PrismaUserRepository implements IUserRepository {
       });
       return this.mapToDomain(created);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        (error as any).code === 'P2002'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new UserAlreadyExistsError(data.email);
       }
       throw new DatabaseError('create failed', error);
@@ -114,10 +111,7 @@ export class PrismaUserRepository implements IUserRepository {
       });
       return this.mapToDomain(updated);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        (error as any).code === 'P2025'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new UserNotFoundException(id);
       }
       throw new DatabaseError('update failed', error);
@@ -131,10 +125,7 @@ export class PrismaUserRepository implements IUserRepository {
         data: { deletedAt: new Date(), isActive: false },
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        (error as any).code === 'P2025'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new UserNotFoundException(id);
       }
       throw new DatabaseError('delete failed', error);

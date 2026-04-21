@@ -131,6 +131,12 @@ async function bootstrap(): Promise<void> {
   await app.listen({ port, host: '0.0.0.0' });
   logger.log(`🚀 Running: http://localhost:${port}/${apiPrefix}`);
   logger.log(`🌍 Env: ${nodeEnv}`);
+
+  if (nodeEnv !== 'production') {
+    console.log(`\n======================================================`);
+    console.log(`👉 📚 Swagger Docs: http://localhost:${port}/${apiPrefix}/docs`);
+    console.log(`======================================================\n`);
+  }
 }
 
 bootstrap().catch((err: unknown) => {

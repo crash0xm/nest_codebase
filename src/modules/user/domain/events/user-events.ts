@@ -23,7 +23,7 @@ export class UserUpdatedEvent implements DomainEvent {
     public readonly email: string,
     public readonly firstName: string,
     public readonly lastName: string,
-    public readonly changes: any,
+    public readonly changes: Record<string, unknown>,
   ) {}
 }
 

@@ -3,6 +3,7 @@ import { IsString, IsOptional, IsInt, IsBoolean, IsNotEmpty } from 'class-valida
 import { Transform } from 'class-transformer';
 import { AuthConfig } from './auth-config.type';
 import { validateConfig } from '@/common/utils/config/validate-config';
+import { toOptionalInt } from '@/common/utils/config/env-transform.util';
 
 class EnvironmentVariablesValidator {
   @IsString()
@@ -21,12 +22,7 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   AUTH_JWT_REFRESH_EXPIRES_IN!: string;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   AUTH_SESSION_MAX_ACTIVE!: number;
@@ -42,12 +38,7 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   AUTH_SESSION_BLACKLIST_ENABLED!: boolean;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   AUTH_PASSWORD_MIN_LENGTH!: number;

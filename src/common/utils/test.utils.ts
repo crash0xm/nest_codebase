@@ -1,12 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { AppLoggerService } from '@/common/services/logger.service';
+import { Prisma, PrismaClient } from '../../generated/prisma/client';
 
 export interface TestDatabase {
   reset: () => Promise<void>;
   close: () => Promise<void>;
   clear: (table?: string) => Promise<void>;
-  seed: (data?: any) => Promise<void>;
-  transaction: (callback: (tx: any) => Promise<void>) => Promise<void>;
+  seed: (data?: { users?: any[]; products?: any[] }) => Promise<void>;
+  transaction: (callback: (tx: Prisma.TransactionClient) => Promise<void>) => Promise<void>;
 }
 
 export class TestBuilder<T> {
@@ -35,12 +37,12 @@ export class TestBuilder<T> {
 
 export class DatabaseTestHelper implements TestDatabase {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly logger: AppLoggerService,
   ) {}
 
   async reset(): Promise<void> {
-    await this.logger.trace('Resetting test database');
+    this.logger.trace('Resetting test database');
 
     // Delete all data in correct order to respect foreign keys
     await (this.prisma as any).product.deleteMany();
@@ -56,7 +58,7 @@ export class DatabaseTestHelper implements TestDatabase {
 
   async clear(table?: string): Promise<void> {
     if (table) {
-      await this.logger.trace(`Clearing table: ${table}`);
+      this.logger.trace(`Clearing table: ${table}`);
 
       switch (table.toLowerCase()) {
         case 'users':
@@ -73,25 +75,25 @@ export class DatabaseTestHelper implements TestDatabase {
     }
   }
 
-  async seed(data?: any): Promise<void> {
-    await this.logger.trace('Seeding test database');
+  async seed(data?: { users?: unknown[]; products?: unknown[] }): Promise<void> {
+    this.logger.trace('Seeding test database');
 
     if (data?.users) {
       await this.prisma.user.createMany({
-        data: data.users,
+        data: data.users as any,
       });
     }
 
     if (data?.products) {
       await (this.prisma as any).product.createMany({
-        data: data.products,
+        data: data.products as any,
       });
     }
 
     this.logger.trace('Test database seeding completed');
   }
 
-  async transaction(callback: (tx: any) => Promise<void>): Promise<void> {
+  async transaction(callback: (tx: Prisma.TransactionClient) => Promise<void>): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       await callback(tx);
     });
@@ -133,7 +135,7 @@ export class DatabaseTestHelper implements TestDatabase {
   // Assertions for testing
   assertExists<T>(data: T | null | undefined, message?: string): asserts data is T {
     if (data === null || data === undefined) {
-      throw new Error(message || `Expected data to exist, but got ${data}`);
+      throw new Error(message ?? `Expected data to exist, but got ${String(data)}`);
     }
   }
 
@@ -142,31 +144,35 @@ export class DatabaseTestHelper implements TestDatabase {
     message?: string,
   ): asserts data is null | undefined {
     if (data !== null && data !== undefined) {
-      throw new Error(message || `Expected data to not exist, but got ${data}`);
+      throw new Error(message ?? `Expected data to not exist, but got ${JSON.stringify(data)}`);
     }
   }
 
   assertEquals<T>(actual: T, expected: T, message?: string): void {
     if (actual !== expected) {
-      throw new Error(message || `Expected ${expected}, but got ${actual}`);
+      throw new Error(
+        message ?? `Expected ${JSON.stringify(expected)}, but got ${JSON.stringify(actual)}`,
+      );
     }
   }
 
   assertNotEqual<T>(actual: T, expected: T, message?: string): void {
     if (actual === expected) {
-      throw new Error(message || `Expected not ${expected}, but got ${actual}`);
+      throw new Error(
+        message ?? `Expected not ${JSON.stringify(expected)}, but got ${JSON.stringify(actual)}`,
+      );
     }
   }
 
   assertContains<T extends string>(actual: T, expected: string, message?: string): void {
     if (!actual.includes(expected)) {
-      throw new Error(message || `Expected "${actual}" to contain "${expected}"`);
+      throw new Error(message ?? `Expected "${actual}" to contain "${expected}"`);
     }
   }
 
-  assertLength<T extends any[]>(actual: T, expectedLength: number, message?: string): void {
+  assertLength<T extends unknown[]>(actual: T, expectedLength: number, message?: string): void {
     if (actual.length !== expectedLength) {
-      throw new Error(message || `Expected length ${expectedLength}, but got ${actual.length}`);
+      throw new Error(message ?? `Expected length ${expectedLength}, but got ${actual.length}`);
     }
   }
 
@@ -220,7 +226,7 @@ export class TestTimer {
   assertMaxTime(maxMs: number, message?: string): void {
     const elapsed = this.elapsed();
     if (elapsed > maxMs) {
-      throw new Error(message || `Test took too long: ${elapsed}ms (max: ${maxMs}ms)`);
+      throw new Error(message ?? `Test took too long: ${elapsed}ms (max: ${maxMs}ms)`);
     }
   }
 }
@@ -240,9 +246,13 @@ export class TestSetup {
     await helper.close();
   }
 
-  static createTestContext(user?: { id: string; email: string; role: string }) {
+  static createTestContext(user?: { id: string; email: string; role: string }): {
+    user: { id: string; email: string; role: string };
+    requestId: string;
+    traceId: string;
+  } {
     return {
-      user: user || {
+      user: user ?? {
         id: 'test-user-id',
         email: 'test@example.com',
         role: 'USER',

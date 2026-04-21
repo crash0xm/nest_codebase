@@ -9,7 +9,7 @@ export interface AppClsStore {
   userId?: string;
   userRole?: string;
   startTime: number;
-  [key: symbol]: any;
+  [key: symbol]: unknown;
 }
 
 @Global()

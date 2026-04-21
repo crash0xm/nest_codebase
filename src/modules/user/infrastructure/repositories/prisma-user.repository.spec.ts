@@ -5,8 +5,21 @@ import { AppLoggerService } from '@/common/services/logger.service';
 
 describe('PrismaUserRepository', () => {
   let repository: PrismaUserRepository;
-  let prisma: any;
-  let logger: any;
+  let prisma: {
+    user: {
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+    };
+  };
+  let logger: {
+    startTimer: jest.Mock;
+    database: jest.Mock;
+    errorWithException: jest.Mock;
+  };
 
   beforeEach(async () => {
     prisma = {

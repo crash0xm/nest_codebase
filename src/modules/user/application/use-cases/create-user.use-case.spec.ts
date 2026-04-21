@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { CreateUserUseCase } from './create-user.use-case';
 import { ConflictError } from '@/common/domain/errors/application.error';
 import { INJECTION_TOKENS } from '@/constants/injection-tokens';
@@ -28,7 +29,7 @@ describe('CreateUserUseCase', () => {
             findAll: jest.fn(),
             update: jest.fn(),
             delete: jest.fn(),
-          } as unknown,
+          },
         },
         {
           provide: PASSWORD_HASHER,
@@ -40,7 +41,7 @@ describe('CreateUserUseCase', () => {
           provide: EventEmitter2,
           useValue: {
             emit: jest.fn(),
-          } as unknown,
+          },
         },
       ],
     });
@@ -80,8 +81,8 @@ describe('CreateUserUseCase', () => {
     // Assert
     expect(result).toBeDefined();
     expect(result.email).toBe(dto.email);
-    expect(userRepository.create).toHaveBeenCalled();
-    expect(eventEmitter.emit).toHaveBeenCalledWith(
+    expect(userRepository.create as jest.Mock).toHaveBeenCalled();
+    expect(eventEmitter.emit as jest.Mock).toHaveBeenCalledWith(
       'user.created',
       expect.objectContaining({
         email: dto.email,
@@ -103,7 +104,7 @@ describe('CreateUserUseCase', () => {
 
     // Act & Assert
     await expect(useCase.execute(dto)).rejects.toThrow(ConflictError);
-    expect(userRepository.create).not.toHaveBeenCalled();
-    expect(eventEmitter.emit).not.toHaveBeenCalled();
+    expect(userRepository.create as jest.Mock).not.toHaveBeenCalled();
+    expect(eventEmitter.emit as jest.Mock).not.toHaveBeenCalled();
   });
 });

@@ -1,18 +1,13 @@
-import { Injectable, CanActivate, ExecutionContext, HttpResponse } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppLoggerService } from '@/common/services/logger.service';
 import { ApplicationError } from '@/common/domain/errors/application.error';
 
-interface RateLimitRequest {
+type RateLimitedFastifyRequest = FastifyRequest & {
   user?: { id: string };
-  ip?: string;
-  connection?: { remoteAddress?: string };
-  socket?: { remoteAddress?: string };
-  path: string;
-  method: string;
-  headers: Record<string, unknown>;
-}
+};
 
 export interface RateLimitOptions {
   windowMs: number;
@@ -56,8 +51,8 @@ export class RateLimitGuard implements CanActivate {
   }
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
+    const request = context.switchToHttp().getRequest<RateLimitedFastifyRequest>();
+    const response = context.switchToHttp().getResponse<FastifyReply>();
 
     try {
       // Get rate limit options from metadata
@@ -79,7 +74,7 @@ export class RateLimitGuard implements CanActivate {
           totalHits: rateLimitInfo.totalHits,
           max: options.max,
           windowMs: options.windowMs,
-          path: request.path,
+          path: request.url,
           method: request.method,
           ip: request.ip,
           userAgent: request.headers['user-agent'],
@@ -98,14 +93,14 @@ export class RateLimitGuard implements CanActivate {
         key,
         totalHits: rateLimitInfo.totalHits,
         remainingHits: rateLimitInfo.remainingHits,
-        path: request.path,
+        path: request.url,
         method: request.method,
       });
 
       return true;
     } catch (error) {
       this.logger.errorWithException('Rate limit guard error', error as Error, undefined, {
-        path: request.path,
+        path: request.url,
         method: request.method,
         ip: request.ip,
       });
@@ -126,10 +121,10 @@ export class RateLimitGuard implements CanActivate {
     };
   }
 
-  private generateKey(request: RateLimitRequest, _options: RateLimitOptions): string {
+  private generateKey(request: RateLimitedFastifyRequest, _options: RateLimitOptions): string {
     const userId = request.user?.id;
-    const ip = request.ip ?? request.connection?.remoteAddress ?? request.socket?.remoteAddress;
-    const endpoint = request.path;
+    const ip = request.ip || request.socket?.remoteAddress;
+    const endpoint = request.url ?? '';
 
     if (userId) {
       return `rate_limit:user:${userId}:${endpoint}`;
@@ -140,10 +135,10 @@ export class RateLimitGuard implements CanActivate {
     }
   }
 
-  private addRateLimitHeaders(response: HttpResponse, rateLimitInfo: RateLimitInfo): void {
-    response.setHeader('X-RateLimit-Limit', rateLimitInfo.windowMs);
-    response.setHeader('X-RateLimit-Remaining', Math.max(0, rateLimitInfo.remainingHits));
-    response.setHeader('X-RateLimit-Reset', rateLimitInfo.resetTime.toISOString());
+  private addRateLimitHeaders(response: FastifyReply, rateLimitInfo: RateLimitInfo): void {
+    void response.header('X-RateLimit-Limit', String(rateLimitInfo.windowMs));
+    void response.header('X-RateLimit-Remaining', String(Math.max(0, rateLimitInfo.remainingHits)));
+    void response.header('X-RateLimit-Reset', rateLimitInfo.resetTime.toISOString());
   }
 }
 
@@ -235,7 +230,10 @@ export class MemoryRateLimitStore implements RateLimitStore {
 export const RateLimit =
   (options: Partial<RateLimitOptions>) =>
   (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor => {
-    Reflect.defineMetadata('rateLimit', options, descriptor.value);
+    const handler: unknown = descriptor.value;
+    if (handler !== undefined) {
+      Reflect.defineMetadata('rateLimit', options, handler as object);
+    }
     return descriptor;
   };
 

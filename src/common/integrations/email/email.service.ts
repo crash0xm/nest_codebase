@@ -91,7 +91,7 @@ export class EmailService {
         Best regards,
         The Team
       `,
-      from: `${emailConfig.sendgrid?.fromName || emailConfig.ses?.fromName} <${emailConfig.sendgrid?.fromEmail || emailConfig.ses?.fromEmail}>`,
+      from: `${emailConfig.sendgrid?.fromName ?? emailConfig.ses?.fromName} <${emailConfig.sendgrid?.fromEmail ?? emailConfig.ses?.fromEmail}>`,
     });
   }
 
@@ -122,7 +122,7 @@ export class EmailService {
         
         If you didn't request this, please ignore this email.
       `,
-      from: `${emailConfig.sendgrid?.fromName || emailConfig.ses?.fromName} <${emailConfig.sendgrid?.fromEmail || emailConfig.ses?.fromEmail}>`,
+      from: `${emailConfig.sendgrid?.fromName ?? emailConfig.ses?.fromName} <${emailConfig.sendgrid?.fromEmail ?? emailConfig.ses?.fromEmail}>`,
     });
   }
 

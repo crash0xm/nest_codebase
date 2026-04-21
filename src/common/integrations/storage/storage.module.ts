@@ -2,6 +2,7 @@ import { Module, DynamicModule } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StorageService } from './storage.service';
 import { AwsS3Provider } from './providers/aws-s3.provider';
+import type { StorageProvider } from './storage.interface';
 
 export const STORAGE_PROVIDER = 'StorageProvider';
 
@@ -14,7 +15,7 @@ export class StorageModule {
         {
           provide: STORAGE_PROVIDER,
           inject: [ConfigService],
-          useFactory: (config: ConfigService) => {
+          useFactory: (config: ConfigService): StorageProvider => {
             const provider = config.get<string>('storage.provider');
 
             if (!provider) {

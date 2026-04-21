@@ -31,7 +31,7 @@ export class UnitOfWork {
       });
     } catch (error: unknown) {
       if (this.isPrismaKnownError(error)) {
-        throw new DatabaseError(`Transaction failed: ${error.code as string}`, error);
+        throw new DatabaseError(`Transaction failed: ${error.code}`, error);
       }
       throw new DatabaseError('Transaction failed with unknown error', error);
     }

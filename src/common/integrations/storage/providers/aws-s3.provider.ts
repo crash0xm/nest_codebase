@@ -36,7 +36,7 @@ export class AwsS3Provider implements StorageProvider {
         secretAccessKey: storageConfig.awsS3!.secretAccessKey,
       },
       endpoint: storageConfig.awsS3!.endpoint,
-      forcePathStyle: storageConfig.awsS3!.forcePathStyle || false,
+      forcePathStyle: storageConfig.awsS3!.forcePathStyle ?? false,
     });
 
     this.bucket = storageConfig.awsS3!.bucket;
@@ -159,18 +159,14 @@ export class AwsS3Provider implements StorageProvider {
   }
 
   async getSignedUrl(key: string, expiresIn: number): Promise<string> {
-    try {
-      const command = new GetObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      });
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
 
-      const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+    const url = await getSignedUrl(this.s3Client, command, { expiresIn });
 
-      return url;
-    } catch (error) {
-      throw error;
-    }
+    return url;
   }
 
   async exists(key: string): Promise<boolean> {

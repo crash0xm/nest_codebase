@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { BaseEntity } from '@/common/domain/base.entity';
 
 export class ProductEntity extends BaseEntity {
@@ -25,7 +26,6 @@ export class ProductEntity extends BaseEntity {
     }
 
     const now = new Date();
-    const { v4: uuidv4 } = require('uuid');
 
     return new ProductEntity({
       id: uuidv4(),

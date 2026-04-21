@@ -28,6 +28,7 @@ import { GetUserByIdUseCase } from '../../application/use-cases/get-user-by-id.u
 import { GetUsersUseCase } from '../../application/use-cases/get-users.use-case';
 
 import { Roles } from '@/common/guards/authorization.guard';
+import type { UserProps } from '../../domain/entities/user.entity';
 
 class UserResponse {
   id!: string;
@@ -66,7 +67,20 @@ export class UserController {
     private readonly getUsersUseCase: GetUsersUseCase,
   ) {}
 
-  private toResponse(user: any): UserResponse {
+  private toResponse(
+    user: Pick<
+      UserProps,
+      | 'id'
+      | 'email'
+      | 'firstName'
+      | 'lastName'
+      | 'role'
+      | 'isActive'
+      | 'isEmailVerified'
+      | 'createdAt'
+      | 'updatedAt'
+    >,
+  ): UserResponse {
     return {
       id: user.id,
       email: user.email,

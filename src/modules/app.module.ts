@@ -82,7 +82,7 @@ import { UserModule } from '@modules/user/user.module';
 
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService): object => {
+      useFactory: (config: ConfigService): any => {
         return {
           connection: {
             host: config.get<string>('redis.host'),
@@ -133,7 +133,7 @@ import { UserModule } from '@modules/user/user.module';
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },
 
     // Global authentication
-    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useExisting: AuthGuard },
 
     // Global role + permission authorization
     { provide: APP_GUARD, useClass: AuthorizationGuard },

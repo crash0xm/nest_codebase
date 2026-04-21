@@ -3,18 +3,14 @@ import { IsString, IsOptional, IsInt, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { RedisConfig } from './redis-config.type';
 import { validateConfig } from '@/common/utils/config/validate-config';
+import { toOptionalInt } from '@/common/utils/config/env-transform.util';
 
 class EnvironmentVariablesValidator {
   @IsString()
   @IsOptional()
   CACHE_REDIS_HOST!: string;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   CACHE_REDIS_PORT!: number;
@@ -23,22 +19,12 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   CACHE_REDIS_PASSWORD!: string;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   CACHE_REDIS_DB!: number;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   CACHE_REDIS_CONNECT_TIMEOUT!: number;
@@ -54,12 +40,7 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   CACHE_REDIS_LAZY_CONNECT!: boolean;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   CACHE_REDIS_MAX_RETRIES!: number;

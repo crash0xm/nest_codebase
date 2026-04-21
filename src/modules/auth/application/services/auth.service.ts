@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import type { SignOptions } from 'jsonwebtoken';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { v4 as uuidv4 } from 'uuid';
@@ -40,6 +41,7 @@ export interface AuthUserPayload {
   email: string;
   role: Role;
   isActive: boolean;
+  sessionId?: string;
 }
 
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
@@ -178,12 +180,12 @@ export class AuthService {
         {
           secret: this.authConf.jwt.accessToken.secret,
           expiresIn: this.authConf.jwt.accessToken.expiresIn,
-        } as any,
+        } as SignOptions,
       ),
       this.jwtService.signAsync({ sub: user.id, jti: refreshTokenId }, {
         secret: this.authConf.jwt.refreshToken.secret,
         expiresIn: this.authConf.jwt.refreshToken.expiresIn,
-      } as any),
+      } as SignOptions),
     ]);
 
     const refreshTokenTtlSeconds = this.getRefreshTokenTtlSeconds();

@@ -36,7 +36,7 @@ export class ProductController {
     status: HttpStatus.NOT_FOUND,
     description: 'Product not found',
   })
-  async findById(@Param('id') _id: string): Promise<ProductEntity> {
+  findById(@Param('id') _id: string): never {
     // TODO: Implement GetProductByIdUseCase
     throw new Error('Not implemented yet');
   }
@@ -47,7 +47,7 @@ export class ProductController {
     status: HttpStatus.OK,
     description: 'Products retrieved successfully',
   })
-  async findAll(): Promise<any> {
+  findAll(): never {
     // TODO: Implement GetProductsUseCase
     throw new Error('Not implemented yet');
   }

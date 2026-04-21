@@ -104,128 +104,15 @@ export class TransactionService {
       );
     }
 
-    const logOperation = (operation: string) => {
-      const operationStart = Date.now();
-      context.operations.push({
-        operation,
-        timestamp: operationStart,
-      });
-
-      return () => {
-        const duration = Date.now() - operationStart;
-        const lastOp = context.operations[context.operations.length - 1];
-        if (lastOp) {
-          lastOp.duration = duration;
-        }
-      };
-    };
-
-    // Create transaction wrapper with logging
     const transactionWrapper = async (
       tx: import('@/generated/prisma/client').Prisma.TransactionClient,
-    ) => {
-      // Wrap common Prisma operations with logging
-      const modelName = this.getModelName();
-      const originalMethods = {
-        findUnique: (tx as any)[modelName]?.findUnique?.bind(tx),
-        findFirst: (tx as any)[modelName]?.findFirst?.bind(tx),
-        findMany: (tx as any)[modelName]?.findMany?.bind(tx),
-        create: (tx as any)[modelName]?.create?.bind(tx),
-        update: (tx as any)[modelName]?.update?.bind(tx),
-        delete: (tx as any)[modelName]?.delete?.bind(tx),
-        count: (tx as any)[modelName]?.count?.bind(tx),
-      };
+    ): Promise<T> => {
+      context.operations.push({
+        operation: 'transaction',
+        timestamp: Date.now(),
+      });
 
-      // Override methods with logging
-      if ((tx as any)[modelName]) {
-        const model = (tx as any)[modelName];
-
-        model.findUnique = async (args: Record<string, unknown>) => {
-          const endTimer = logOperation('findUnique');
-          try {
-            const result = await originalMethods.findUnique(args);
-            endTimer();
-            return result;
-          } catch (error) {
-            endTimer();
-            throw error;
-          }
-        };
-
-        model.findFirst = async (args: Record<string, unknown>) => {
-          const endTimer = logOperation('findFirst');
-          try {
-            const result = await originalMethods.findFirst(args);
-            endTimer();
-            return result;
-          } catch (error) {
-            endTimer();
-            throw error;
-          }
-        };
-
-        model.findMany = async (args: Record<string, unknown>) => {
-          const endTimer = logOperation('findMany');
-          try {
-            const result = await originalMethods.findMany(args);
-            endTimer();
-            return result;
-          } catch (error) {
-            endTimer();
-            throw error;
-          }
-        };
-
-        model.create = async (args: Record<string, unknown>) => {
-          const endTimer = logOperation('create');
-          try {
-            const result = await originalMethods.create(args);
-            endTimer();
-            return result;
-          } catch (error) {
-            endTimer();
-            throw error;
-          }
-        };
-
-        model.update = async (args: Record<string, unknown>) => {
-          const endTimer = logOperation('update');
-          try {
-            const result = await originalMethods.update(args);
-            endTimer();
-            return result;
-          } catch (error) {
-            endTimer();
-            throw error;
-          }
-        };
-
-        model.delete = async (args: Record<string, unknown>) => {
-          const endTimer = logOperation('delete');
-          try {
-            const result = await originalMethods.delete(args);
-            endTimer();
-            return result;
-          } catch (error) {
-            endTimer();
-            throw error;
-          }
-        };
-
-        model.count = async (args: Record<string, unknown>) => {
-          const endTimer = logOperation('count');
-          try {
-            const result = await originalMethods.count(args);
-            endTimer();
-            return result;
-          } catch (error) {
-            endTimer();
-            throw error;
-          }
-        };
-      }
-
-      return await operations(tx);
+      return operations(tx);
     };
 
     // Execute transaction with options
@@ -298,14 +185,8 @@ export class TransactionService {
     return `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private getModelName(): string {
-    // This is a placeholder - in real implementation,
-    // this would be determined by the context or passed as parameter
-    return 'model';
-  }
-
   // Health check for transaction service
-  async healthCheck(): Promise<{
+  healthCheck(): Promise<{
     healthy: boolean;
     activeTransactions: number;
     longestRunningTransaction?: {
@@ -324,10 +205,10 @@ export class TransactionService {
       }
     }
 
-    return {
+    return Promise.resolve({
       healthy: true,
       activeTransactions: activeTransactions.size,
       longestRunningTransaction,
-    };
+    });
   }
 }

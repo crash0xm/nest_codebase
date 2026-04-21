@@ -7,8 +7,8 @@ import { createTestModule } from '@/common/utils/test-helpers';
 
 describe('GetUserByIdUseCase', () => {
   let useCase: GetUserByIdUseCase;
-  let repo: any;
-  let cache: any;
+  let repo: Record<string, jest.Mock>;
+  let cache: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     repo = {

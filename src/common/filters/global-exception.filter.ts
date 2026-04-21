@@ -1,9 +1,31 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, Logger } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ConfigService } from '@nestjs/config';
+import { ValidationError } from 'class-validator';
 import { ApplicationError } from '@/common/domain/errors/application.error';
 import { DomainError } from '@/common/domain/errors/domain.error';
 import { InfrastructureError } from '@/common/errors/infrastructure.error';
+
+type ErrorLocation = { function?: string; file?: string; line?: number; column?: number };
+
+interface StandardErrorResponse {
+  success: boolean;
+  error: {
+    code: string;
+    message: string;
+    details?: Array<{ field: string; message: string; value?: unknown }>;
+    context?: Record<string, unknown>;
+    location?: ErrorLocation;
+  };
+  meta: {
+    timestamp: string;
+    requestId: string | undefined;
+    traceId: string | undefined;
+    path: string;
+    method: string;
+    statusCode: number;
+  };
+}
 
 /**
  * 🔍 Global Exception Filter
@@ -34,7 +56,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.code(errorResponse.meta.statusCode).send(errorResponse);
   }
 
-  private getErrorResponse(exception: unknown, request: FastifyRequest) {
+  private getErrorResponse(exception: unknown, request: FastifyRequest): StandardErrorResponse {
     const requestId = request.headers['x-request-id'] as string | undefined;
     const traceId = request.headers['x-trace-id'] as string | undefined;
     const errorLocation = this.shouldIncludeErrorLocation()
@@ -102,9 +124,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
-      const response = exception.getResponse();
+      const response = exception.getResponse() as string | Record<string, unknown>;
 
-      if (this.isValidationError(response)) {
+      if (this.isValidationErrorResponse(response)) {
         const validationErrors = this.extractValidationErrors(response);
 
         return {
@@ -126,8 +148,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         };
       }
 
-      // Handle other HTTP exceptions
-      const message = this.extractErrorMessage(response);
+      const message = typeof response === 'string' ? response : this.extractErrorMessage(response);
 
       return {
         success: false,
@@ -150,61 +171,72 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return this.createUnknownErrorResponse(exception, request);
   }
 
-  private isValidationError(response: any): boolean {
+  private isValidationErrorResponse(
+    response: unknown,
+  ): response is { message: string[] | ValidationError[] } {
     return (
-      response &&
       typeof response === 'object' &&
+      response !== null &&
       'message' in response &&
-      Array.isArray(response.message)
+      Array.isArray((response as { message: unknown }).message)
     );
   }
 
-  private extractValidationErrors(
-    response: any,
-  ): Array<{ field: string; message: string; value?: any }> {
-    if (!response.message || !Array.isArray(response.message)) {
+  private extractValidationErrors(response: {
+    message: string[] | ValidationError[];
+  }): Array<{ field: string; message: string; value?: unknown }> {
+    const { message } = response;
+    if (!Array.isArray(message)) {
       return [];
     }
 
-    return response.message.map((error: any) => {
+    return message.map((error: string | ValidationError) => {
       if (typeof error === 'string') {
-        return { message: error };
+        return { field: '', message: error };
       }
 
-      if (typeof error === 'object' && error !== null) {
-        return {
-          field: error.property,
-          message: Object.values(error.constraints || {}).join(', '),
-          value: error.value,
-        };
-      }
-
-      return { message: String(error) };
+      const ve = error;
+      const constraints = ve.constraints as Record<string, string> | undefined;
+      const msg =
+        constraints !== undefined ? Object.values(constraints).join(', ') : 'Validation error';
+      return {
+        field: ve.property,
+        message: msg,
+        value: ve.value as unknown,
+      };
     });
   }
 
-  private extractErrorMessage(response: any): string {
+  private extractErrorMessage(response: string | Record<string, unknown>): string {
     if (typeof response === 'string') {
       return response;
     }
 
-    if (typeof response === 'object' && response !== null) {
-      const { message } = response;
+    const raw = response.message;
+    if (Array.isArray(raw)) {
+      return raw
+        .map((item) =>
+          typeof item === 'string'
+            ? item
+            : typeof item === 'object' && item !== null
+              ? 'Invalid'
+              : '',
+        )
+        .filter(Boolean)
+        .join(', ');
+    }
 
-      if (Array.isArray(message)) {
-        return message.join(', ');
-      }
+    if (typeof raw === 'string') {
+      return raw;
+    }
 
-      if (typeof message === 'string') {
-        return message;
-      }
-
-      // Extract first message from nested object
-      if (typeof message === 'object') {
-        const firstKey = Object.keys(message)[0];
-        const firstMessage = message[firstKey];
+    if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+      const nested = raw as Record<string, unknown>;
+      const firstKey = Object.keys(nested)[0];
+      if (firstKey !== undefined) {
+        const firstMessage = nested[firstKey];
         if (Array.isArray(firstMessage)) {
-          return firstMessage.join(', ');
+          return firstMessage.filter((x): x is string => typeof x === 'string').join(', ');
         }
         if (typeof firstMessage === 'string') {
           return firstMessage;
@@ -228,10 +260,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       503: 'SERVICE_UNAVAILABLE',
     };
 
-    return statusCodes[status] || 'UNKNOWN_ERROR';
+    return statusCodes[status] ?? 'UNKNOWN_ERROR';
   }
 
-  private createUnknownErrorResponse(exception: unknown, request: FastifyRequest) {
+  private createUnknownErrorResponse(
+    exception: unknown,
+    request: FastifyRequest,
+  ): StandardErrorResponse {
     const requestId = request.headers['x-request-id'] as string | undefined;
     const traceId = request.headers['x-trace-id'] as string | undefined;
     const isProduction = this.configService.get('app.nodeEnv') === 'production';
@@ -269,7 +304,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           details: [
             {
               field: 'stack',
-              message: exception.stack || 'No stack trace available',
+              message: exception.stack ?? 'No stack trace available',
             },
           ],
         },
@@ -279,12 +314,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return baseResponse;
   }
 
-  private logError(exception: unknown, request: FastifyRequest, errorResponse: any): void {
+  private logError(
+    exception: unknown,
+    request: FastifyRequest,
+    errorResponse: StandardErrorResponse,
+  ): void {
     const isProduction = this.configService.get('app.nodeEnv') === 'production';
     const { requestId } = errorResponse.meta;
     const { traceId } = errorResponse.meta;
 
-    const logContext = {
+    const logContext: Record<string, unknown> = {
       requestId,
       traceId,
       method: request.method,
@@ -316,9 +355,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return this.configService.get('app.nodeEnv') !== 'production';
   }
 
-  private extractErrorLocation(
-    exception: unknown,
-  ): { function?: string; file?: string; line?: number; column?: number } | undefined {
+  private extractErrorLocation(exception: unknown): ErrorLocation | undefined {
     if (!(exception instanceof Error) || !exception.stack) {
       return undefined;
     }

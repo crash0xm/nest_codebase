@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Product } from '@/generated/prisma/client';
 import { ProductEntity } from '../../domain/entities/product.entity';
 import {
   IProductRepository,
@@ -12,20 +11,42 @@ import { PrismaService } from '@/modules/prisma/prisma.service';
 import { PrismaBaseRepository } from '@/common/repositories/prisma-base.repository';
 import { AppLoggerService } from '@/common/services/logger.service';
 
+/** DB row shape for Product (mirrors Prisma model; avoids ESLint failures resolving generated types). */
+interface ProductRow {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  stock: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type ProductModelDelegate = {
+  findUnique(args: Record<string, unknown>): Promise<ProductRow | null>;
+  findMany(args?: Record<string, unknown>): Promise<ProductRow[]>;
+  count(args?: Record<string, unknown>): Promise<number>;
+  create(args: Record<string, unknown>): Promise<ProductRow>;
+  update(args: Record<string, unknown>): Promise<ProductRow>;
+  delete(args: Record<string, unknown>): Promise<void>;
+  findFirst(args?: Record<string, unknown>): Promise<ProductRow | null>;
+};
+
 @Injectable()
 export class PrismaProductRepository
-  extends PrismaBaseRepository<ProductEntity>
+  extends PrismaBaseRepository<ProductRow>
   implements IProductRepository
 {
   constructor(prisma: PrismaService, logger: AppLoggerService) {
     super(prisma, logger, 'Product');
   }
 
-  protected getModelDelegate() {
+  protected getModelDelegate(): ProductModelDelegate {
     return (this.prisma as any).product;
   }
 
-  private mapToDomain(product: Product): ProductEntity {
+  private mapToDomain(product: ProductRow): ProductEntity {
     return ProductEntity.reconstitute({
       id: product.id,
       name: product.name,
@@ -40,7 +61,7 @@ export class PrismaProductRepository
 
   async findById(id: string): Promise<ProductEntity | null> {
     const product = await super.findById(id);
-    return product ? this.mapToDomain(product as unknown as Product) : null;
+    return product ? this.mapToDomain(product as unknown as ProductRow) : null;
   }
 
   async findAll(options: PaginationOptions): Promise<PaginatedResult<ProductEntity>> {
@@ -54,7 +75,7 @@ export class PrismaProductRepository
     });
 
     return {
-      data: result.data.map((product) => this.mapToDomain(product as unknown as Product)),
+      data: result.data.map((product) => this.mapToDomain(product as unknown as ProductRow)),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -65,7 +86,7 @@ export class PrismaProductRepository
   async create(data: CreateProductDto): Promise<ProductEntity>;
   async create(data: Record<string, unknown> | CreateProductDto): Promise<ProductEntity> {
     const product = await super.create(data as Record<string, unknown>);
-    return this.mapToDomain(product as unknown as Product);
+    return this.mapToDomain(product as unknown as ProductRow);
   }
 
   async update(id: string, data: Record<string, unknown>): Promise<ProductEntity>;
@@ -75,7 +96,7 @@ export class PrismaProductRepository
     data: Record<string, unknown> | UpdateProductDto,
   ): Promise<ProductEntity> {
     const product = await super.update(id, data as Record<string, unknown>);
-    return this.mapToDomain(product as unknown as Product);
+    return this.mapToDomain(product as unknown as ProductRow);
   }
 
   async delete(id: string): Promise<void> {

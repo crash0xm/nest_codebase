@@ -1,16 +1,20 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { Counter } from 'prom-client';
+import type { Counter } from 'prom-client';
+
+interface TemplateService {
+  render(template: string, context: Record<string, unknown>): Promise<string>;
+}
 
 @Injectable()
-export class EmailService {
-  private readonly logger = new Logger(EmailService.name);
+export class NotificationEmailService {
+  private readonly logger = new Logger(NotificationEmailService.name);
 
   constructor(
     @InjectMetric('email_sent_total')
     private readonly emailCounter: Counter,
-    @Inject('TEMPLATE_SERVICE') // Template service injected
-    private readonly templateService: any,
+    @Inject('TEMPLATE_SERVICE')
+    private readonly templateService: TemplateService,
   ) {}
 
   async send(
@@ -21,7 +25,6 @@ export class EmailService {
   ): Promise<void> {
     try {
       await this.templateService.render(template, context);
-      // Simulate email sending - in real app, use actual email service
       this.emailCounter.inc({ provider: 'simulated', status: 'success' });
       this.logger.log(`Email sent to ${to} with subject: ${subject}`);
     } catch (error) {
@@ -32,7 +35,7 @@ export class EmailService {
   }
 
   async sendWelcomeEmail(userEmail: string, userName: string): Promise<void> {
-    this.send(userEmail, 'Welcome to our platform!', 'welcome', { userName, userEmail });
+    await this.send(userEmail, 'Welcome to our platform!', 'welcome', { userName, userEmail });
   }
 
   async sendAccountUpdateEmail(
@@ -40,10 +43,17 @@ export class EmailService {
     userName: string,
     changes: Record<string, unknown>,
   ): Promise<void> {
-    this.send(userEmail, 'Account updated', 'account-update', { userName, userEmail, changes });
+    await this.send(userEmail, 'Account updated', 'account-update', {
+      userName,
+      userEmail,
+      changes,
+    });
   }
 
   async sendPasswordReset(userEmail: string, resetToken: string): Promise<void> {
-    this.send(userEmail, 'Password reset request', 'password-reset', { userEmail, resetToken });
+    await this.send(userEmail, 'Password reset request', 'password-reset', {
+      userEmail,
+      resetToken,
+    });
   }
 }

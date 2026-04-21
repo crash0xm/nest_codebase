@@ -3,12 +3,13 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { AppLoggerService, LogMetadata } from '@/common/services/logger.service';
+import type { RequestWithUser } from '@/common/decorators/current-user.decorator';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   constructor(private readonly logger: AppLoggerService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const startTime = Date.now();
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const response = context.switchToHttp().getResponse<FastifyReply>();
@@ -18,8 +19,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const traceId = headers['x-trace-id'] as string | undefined;
     const userAgent = headers['user-agent'];
 
-    // Extract user info if available (from auth middleware)
-    const { user } = request as any;
+    const user = (request as RequestWithUser).user;
     const userId = user?.id;
     const sessionId = user?.sessionId;
 
@@ -31,15 +31,14 @@ export class LoggingInterceptor implements NestInterceptor {
       method,
       url,
       ip,
-      userAgent,
+      userAgent: userAgent,
     };
 
     return next.handle().pipe(
       tap(() => {
-        // Log successful request
         const endTime = Date.now();
         const duration = endTime - startTime;
-        const { statusCode } = response;
+        const statusCode = response.statusCode;
 
         this.logger.logRequest(method, url, statusCode, duration, {
           ...metadata,
@@ -48,7 +47,6 @@ export class LoggingInterceptor implements NestInterceptor {
           success: statusCode < 400,
         });
 
-        // Log performance for slow requests
         if (duration > 1000) {
           this.logger.performance(`${method} ${url}`, duration, startTime, endTime, {
             ...metadata,
@@ -57,15 +55,15 @@ export class LoggingInterceptor implements NestInterceptor {
           });
         }
       }),
-      catchError((error) => {
-        // Log failed request
+      catchError((error: Error) => {
         const endTime = Date.now();
         const duration = endTime - startTime;
+        const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
 
         this.logger.errorWithException(`Request failed: ${method} ${url}`, error, undefined, {
           ...metadata,
           duration,
-          statusCode: error.status || 500,
+          statusCode: statusCode ?? 500,
         });
 
         return throwError(() => error);

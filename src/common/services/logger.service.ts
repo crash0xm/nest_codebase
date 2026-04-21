@@ -26,7 +26,7 @@ export interface LogMetadata {
   userId?: string;
   sessionId?: string;
   correlationId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface LogEntry {
@@ -50,9 +50,7 @@ export interface PerformanceLogEntry extends LogEntry {
   duration: number;
   startTime: number;
   endTime: number;
-  metadata?: {
-    [key: string]: any;
-  };
+  metadata?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -136,7 +134,7 @@ export class AppLoggerService {
         name: error.name,
         message: error.message,
         stack: this.isProduction ? undefined : error.stack,
-        code: (error as any).code,
+        code: (error as { code?: string }).code,
       },
     });
   }
@@ -195,7 +193,7 @@ export class AppLoggerService {
   // Security event logging
   logSecurityEvent(
     event: string,
-    details: any,
+    details: Record<string, unknown>,
     severity: 'low' | 'medium' | 'high' | 'critical' = 'medium',
     metadata?: LogMetadata,
   ): void {
@@ -239,7 +237,7 @@ export class AppLoggerService {
   ): void {
     const logEntry: LogEntry = {
       level,
-      context: context || LogContext.SYSTEM,
+      context: context ?? LogContext.SYSTEM,
       message,
       timestamp: new Date().toISOString(),
       metadata: {
@@ -273,14 +271,10 @@ export class AppLoggerService {
         this.nestLogger.log(logEntry.message, logData);
         break;
       case LogLevel.DEBUG:
-        if (this.nestLogger) {
-          (this.nestLogger as any).debug(logEntry.message, logEntry.context, logData);
-        }
+        this.nestLogger.debug?.(logEntry.message, logEntry.context, logData);
         break;
       case LogLevel.TRACE:
-        if (this.nestLogger) {
-          (this.nestLogger as any).verbose(logEntry.message, logEntry.context, logData);
-        }
+        this.nestLogger.verbose?.(logEntry.message, logEntry.context, logData);
         break;
     }
   }

@@ -67,12 +67,14 @@ export async function createTestModule(options: TestModuleOptions = {}): Promise
   ];
 
   return Test.createTestingModule({
-    imports: [...defaultImports, ...(options.imports || [])],
-    providers: [...defaultProviders, ...(options.providers || [])],
+    imports: [...defaultImports, ...(options.imports ?? [])],
+    providers: [...defaultProviders, ...(options.providers ?? [])],
   }).compile();
 }
 
-export function createMockRepository<T extends Record<string, any>>(methods: Partial<T> = {}): T {
+export function createMockRepository<T extends Record<string, unknown>>(
+  methods: Partial<T> = {},
+): T {
   const mock = {
     findById: jest.fn(),
     findByEmail: jest.fn(),
@@ -88,7 +90,7 @@ export function createMockRepository<T extends Record<string, any>>(methods: Par
   return mock;
 }
 
-export function createMockAuthService() {
+export function createMockAuthService(): Record<string, jest.Mock> {
   return {
     validateUser: jest.fn(),
     generateTokens: jest.fn(),
@@ -98,7 +100,7 @@ export function createMockAuthService() {
   };
 }
 
-export function createMockJwtService() {
+export function createMockJwtService(): Record<string, jest.Mock> {
   return {
     signAsync: jest.fn(),
     verifyAsync: jest.fn(),
@@ -106,10 +108,10 @@ export function createMockJwtService() {
   };
 }
 
-export function createMockConfigService() {
+export function createMockConfigService(): Record<string, jest.Mock> {
   return {
-    get: jest.fn((key: string) => {
-      const configMap: Record<string, any> = {
+    get: jest.fn((key: string): unknown => {
+      const configMap: Record<string, unknown> = {
         app: {
           nodeEnv: 'development',
           port: 3000,
@@ -135,12 +137,16 @@ export function createMockConfigService() {
         },
       };
 
-      return configMap[key] || null;
+      return configMap[key] ?? null;
     }),
   };
 }
 
-export function createMockClsService() {
+export function createMockClsService(): {
+  get: jest.Mock;
+  set: jest.Mock;
+  run: jest.Mock;
+} {
   return {
     get: jest.fn(),
     set: jest.fn(),

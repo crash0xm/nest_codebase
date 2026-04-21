@@ -3,6 +3,7 @@ import { IsString, IsOptional, IsBoolean, IsArray, IsInt } from 'class-validator
 import { Transform } from 'class-transformer';
 import { SecurityConfig } from './security-config.type';
 import { validateConfig } from '@/common/utils/config/validate-config';
+import { toOptionalInt } from '@/common/utils/config/env-transform.util';
 
 class EnvironmentVariablesValidator {
   @IsString()
@@ -28,12 +29,7 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   CORS_CREDENTIALS!: boolean;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   CORS_MAX_AGE!: number;

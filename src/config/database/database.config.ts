@@ -3,6 +3,7 @@ import { IsString, IsOptional, IsInt, IsBoolean, IsNotEmpty } from 'class-valida
 import { Transform } from 'class-transformer';
 import { DatabaseConfig } from './database-config.type';
 import { validateConfig } from '@/common/utils/config/validate-config';
+import { toOptionalInt } from '@/common/utils/config/env-transform.util';
 
 class EnvironmentVariablesValidator {
   @IsString()
@@ -20,22 +21,12 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   DATABASE_SSL!: boolean;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   DATABASE_CONNECTION_TIMEOUT!: number;
 
-  @Transform(({ value }: { value: unknown }) => {
-    if (value === null || value === undefined || value === '') {
-      return undefined;
-    }
-    return parseInt(String(value), 10);
-  })
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
   DATABASE_IDLE_TIMEOUT!: number;

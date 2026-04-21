@@ -18,6 +18,14 @@ interface AuthenticatedRequest extends FastifyRequest {
   };
 }
 
+function isAccessTokenPayload(
+  value: unknown,
+): value is { sub: string; email: string; jti: string } {
+  if (typeof value !== 'object' || value === null) return false;
+  const o = value as Record<string, unknown>;
+  return typeof o.sub === 'string' && typeof o.email === 'string' && typeof o.jti === 'string';
+}
+
 @Injectable()
 export class AuthGuard implements CanActivate {
   private readonly authConfig: AuthConfig;
@@ -54,13 +62,14 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
+      const payloadUnknown: unknown = await this.jwtService.verifyAsync(token, {
         secret: this.authConfig.jwt.accessToken.secret,
       });
 
-      if (!payload.sub || !payload.email || !payload.jti) {
+      if (!isAccessTokenPayload(payloadUnknown)) {
         throw new UnauthorizedException('INVALID_TOKEN_PAYLOAD');
       }
+      const payload = payloadUnknown;
 
       // Add: check if token is blacklisted
       const isBlacklisted = await this.tokenStore.isAccessTokenBlacklisted(payload.jti);

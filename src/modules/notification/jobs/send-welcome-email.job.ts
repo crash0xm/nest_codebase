@@ -8,5 +8,5 @@ export interface SendAccountUpdateEmailJob {
   userId: string;
   email: string;
   firstName: string;
-  changes: any;
+  changes: Record<string, unknown>;
 }

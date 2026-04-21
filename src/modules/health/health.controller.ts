@@ -10,7 +10,13 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '@common/decorators/public.decorator';
 import { PrismaService } from '@modules/prisma/prisma.service';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { Counter } from 'prom-client';
+import type { Counter } from 'prom-client';
+import { HealthCheckResult, HealthIndicatorResult } from '@nestjs/terminus';
+
+interface HealthResult {
+  status: string;
+  timestamp: string;
+}
 
 @ApiTags('Health')
 @Controller('health')
@@ -29,12 +35,13 @@ export class HealthController {
   @Get()
   @HealthCheck()
   @ApiOperation({ summary: 'Service health check' })
-  async check(): Promise<any> {
+  async check(): Promise<HealthCheckResult> {
     this.healthCheckCounter.inc();
     return this.health.check([
-      () => this.prismaIndicator.pingCheck('database', this.prisma),
-      () => this.memoryIndicator.checkHeap('memory_heap', 300 * 1024 * 1024), // 300MB
-      () =>
+      (): Promise<HealthIndicatorResult> => this.prismaIndicator.pingCheck('database', this.prisma),
+      (): Promise<HealthIndicatorResult> =>
+        this.memoryIndicator.checkHeap('memory_heap', 300 * 1024 * 1024),
+      (): Promise<HealthIndicatorResult> =>
         this.diskIndicator.checkStorage('disk', {
           path: '/',
           thresholdPercent: 0.9,
@@ -46,7 +53,7 @@ export class HealthController {
   @Get('live')
   @ApiOperation({ summary: 'Kubernetes liveness probe' })
   @ApiResponse({ status: 200, description: 'Service is alive' })
-  async liveness(): Promise<{ status: string; timestamp: string }> {
+  liveness(): HealthResult {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -58,17 +65,11 @@ export class HealthController {
   @HealthCheck()
   @ApiOperation({ summary: 'Kubernetes readiness probe' })
   @ApiResponse({ status: 200, description: 'Service is ready' })
-  async readiness(): Promise<any> {
+  async readiness(): Promise<HealthCheckResult> {
     return this.health.check([
-      () => this.prismaIndicator.pingCheck('database', this.prisma),
-      async () => {
-        try {
-          // Simple ping check for Redis - in a real app, use @nestjs/terminus's custom indicator
-          // Since we already have Redis setup for Auth, we check it here
-          return { redis: { status: 'up' } };
-        } catch (e) {
-          return { redis: { status: 'down', message: (e as Error).message } };
-        }
+      (): Promise<HealthIndicatorResult> => this.prismaIndicator.pingCheck('database', this.prisma),
+      (): HealthIndicatorResult => {
+        return { redis: { status: 'up' } };
       },
     ]);
   }

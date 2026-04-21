@@ -136,7 +136,7 @@ export class StorageService {
       const defaultExpiresIn = parseInt(
         this.configService.get('STORAGE_SIGNED_URL_EXPIRES_IN', '3600'),
       );
-      const url = await this.provider.getSignedUrl(key, expiresIn || defaultExpiresIn);
+      const url = await this.provider.getSignedUrl(key, expiresIn ?? defaultExpiresIn);
 
       this.logger.log(`Signed URL generated successfully. Key: ${key}`);
 
@@ -168,7 +168,9 @@ export class StorageService {
   /**
    * Get file metadata
    */
-  async getFileMetadata(key: string) {
+  async getFileMetadata(
+    key: string,
+  ): Promise<{ size: number; contentType?: string; lastModified: Date; etag?: string } | null> {
     try {
       this.logger.log(`Getting file metadata via ${this.provider.getProviderName()}`);
 

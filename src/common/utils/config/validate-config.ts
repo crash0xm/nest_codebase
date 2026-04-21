@@ -15,12 +15,12 @@ export function validateConfig<T extends object>(
   });
 
   const errors = validateSync(validatedConfig, {
-    skipMissingProperties: options.skipMissingProperties || false,
+    skipMissingProperties: options.skipMissingProperties ?? false,
   });
 
   if (errors.length > 0) {
     const errorMessages = errors.map((error: ValidationError) => {
-      const constraints = Object.values(error.constraints || {});
+      const constraints = Object.values(error.constraints ?? {});
       return `${error.property}: ${constraints.join(', ')}`;
     });
 
