@@ -122,9 +122,19 @@ async function bootstrap(): Promise<void> {
   (['SIGTERM', 'SIGINT'] as NodeJS.Signals[]).forEach((signal) => {
     process.on(signal, (): void => {
       logger.log(`[${signal}] Shutting down gracefully (${shutdownTimeout}ms)...`);
-      setTimeout(() => process.exit(1), shutdownTimeout).unref();
-      void app.close();
-      process.exit(0);
+      const forceExit = setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, shutdownTimeout);
+      forceExit.unref();
+
+      void app
+        .close()
+        .then(() => {
+          logger.log('Application closed gracefully');
+          process.exit(0);
+        })
+        .catch(() => process.exit(1));
     });
   });
 

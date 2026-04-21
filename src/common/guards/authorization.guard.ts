@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, SetMetadata } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  SetMetadata,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
 import { AppLoggerService } from '@/common/services/logger.service';
@@ -74,8 +80,6 @@ export const ROLE_PERMISSIONS: Readonly<Record<string, readonly Permission[]>> =
   ],
 } as const;
 
-// Dùng SetMetadata của NestJS thay vì Reflect.defineMetadata trực tiếp
-// để tương thích đúng với Reflector.getAllAndOverride
 export const PERMISSIONS_KEY = 'permissions';
 export const ROLES_KEY = 'roles';
 
@@ -86,13 +90,34 @@ export const Permissions = (
 export const Roles = (...roles: string[]): import('@nestjs/common').CustomDecorator<string> =>
   SetMetadata(ROLES_KEY, roles);
 
+function validatePermissionFormat(perm: string): void {
+  const parts = perm.split(':');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error(
+      `[AuthorizationGuard] Invalid permission format: "${perm}". Expected "resource:action"`,
+    );
+  }
+}
+
 @Injectable()
-export class AuthorizationGuard implements CanActivate {
+export class AuthorizationGuard implements CanActivate, OnModuleInit {
+  private validatedPermissions = false;
+
   constructor(
     private readonly reflector: Reflector,
     private readonly logger: AppLoggerService,
     private readonly ownershipService: ResourceOwnershipService,
   ) {}
+
+  onModuleInit(): void {
+    const allPermissions = Object.values(ROLE_PERMISSIONS).flat();
+    for (const perm of allPermissions) {
+      const permStr = `${perm.resource}:${perm.action}`;
+      validatePermissionFormat(permStr);
+    }
+    this.validatedPermissions = true;
+    this.logger.log('[AuthorizationGuard] Permission formats validated at startup');
+  }
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<AuthHttpRequest>();
@@ -115,14 +140,10 @@ export class AuthorizationGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // Không có yêu cầu nào → chỉ cần đăng nhập
     if (!requiredRoles?.length && !requiredPermissions?.length) {
       return true;
     }
 
-    // SUPER_ADMIN bypass mọi kiểm tra role và permission.
-    // Đặt tại đây — một chỗ duy nhất, dễ audit — thay vì rải rác trong
-    // từng helper function như code cũ.
     if (user.role === ROLES.SUPER_ADMIN) {
       this.logger.auth('SUPER_ADMIN access granted', {
         userId: user.id,
@@ -168,13 +189,8 @@ export class AuthorizationGuard implements CanActivate {
     request: AuthHttpRequest,
   ): boolean {
     return requiredPermissions.every((perm) => {
+      validatePermissionFormat(perm);
       const parts = perm.split(':');
-      if (parts.length !== 2 || !parts[0] || !parts[1]) {
-        // Format sai → throw để phát hiện lúc dev, không lúc runtime production
-        throw new Error(
-          `[AuthorizationGuard] Invalid permission format: "${perm}". Expected "resource:action"`,
-        );
-      }
       const permission: Permission = { resource: parts[0], action: parts[1] };
       return this.checkPermission(user, permission, request);
     });
