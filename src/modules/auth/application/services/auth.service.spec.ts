@@ -24,7 +24,7 @@ describe('AuthService', () => {
     revokeAll: jest.Mock;
     blacklistAccessToken: jest.Mock;
   };
-  let configService: { get: jest.Mock };
+  let configService: { get: jest.Mock; getOrThrow: jest.Mock };
   let cls: { set: jest.Mock; get: jest.Mock };
   let passwordHasher: { verify: jest.Mock };
 
@@ -46,12 +46,7 @@ describe('AuthService', () => {
       blacklistAccessToken: jest.fn(),
     };
     configService = {
-      get: jest.fn().mockReturnValue({
-        jwt: {
-          accessToken: { secret: 'at-secret', expiresIn: '15m' },
-          refreshToken: { secret: 'rt-secret', expiresIn: '7d' },
-        },
-      }),
+      get: jest.fn(),
       getOrThrow: jest.fn().mockReturnValue({
         jwt: {
           accessToken: { secret: 'at-secret', expiresIn: '15m' },

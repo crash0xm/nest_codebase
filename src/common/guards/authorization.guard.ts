@@ -101,8 +101,6 @@ function validatePermissionFormat(perm: string): void {
 
 @Injectable()
 export class AuthorizationGuard implements CanActivate, OnModuleInit {
-  private validatedPermissions = false;
-
   constructor(
     private readonly reflector: Reflector,
     private readonly logger: AppLoggerService,
@@ -115,8 +113,7 @@ export class AuthorizationGuard implements CanActivate, OnModuleInit {
       const permStr = `${perm.resource}:${perm.action}`;
       validatePermissionFormat(permStr);
     }
-    this.validatedPermissions = true;
-    this.logger.log('[AuthorizationGuard] Permission formats validated at startup');
+    this.logger.info('[AuthorizationGuard] Permission formats validated at startup');
   }
 
   canActivate(context: ExecutionContext): boolean {

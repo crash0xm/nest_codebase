@@ -10,6 +10,7 @@ import {
 } from '../../domain/repositories/user.repository.interface';
 import { Role } from '../../domain/enums/role.enum';
 import { PASSWORD_HASHER } from '@/common/services/password-hasher.service';
+import { UserEntity } from '../../domain/entities/user.entity';
 
 describe('CreateUserUseCase', () => {
   let useCase: CreateUserUseCase;
@@ -61,18 +62,21 @@ describe('CreateUserUseCase', () => {
       role: Role.USER,
     };
     userRepository.existsByEmail.mockResolvedValue(false);
-    userRepository.create.mockResolvedValue({
-      id: '1',
-      email: dto.email,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      role: dto.role,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      deletedAt: null,
-      passwordHash: 'hashed-password',
-    });
+    userRepository.create.mockResolvedValue(
+      UserEntity.reconstitute({
+        id: '1',
+        email: dto.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        role: dto.role,
+        isActive: true,
+        isEmailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        passwordHash: 'hashed-password',
+      }),
+    );
 
     // Act
     const result = await useCase.execute(dto);

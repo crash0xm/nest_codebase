@@ -9,17 +9,6 @@ export type TransactionCallback<T> = (tx: PrismaTransactionClient) => Promise<T>
 @Injectable()
 export class UnitOfWork {
   constructor(private readonly prisma: PrismaService) {}
-
-  /**
-   * Executes a callback inside a Prisma transaction.
-   * All operations using the passed `tx` client are atomic.
-   *
-   * Usage:
-   *   await this.unitOfWork.run(async (tx) => {
-   *     await tx.user.create({ ... });
-   *     await tx.auditLog.create({ ... });
-   *   });
-   */
   async run<T>(
     callback: TransactionCallback<T>,
     options?: { maxWait?: number; timeout?: number },
@@ -31,7 +20,8 @@ export class UnitOfWork {
       });
     } catch (error: unknown) {
       if (this.isPrismaKnownError(error)) {
-        throw new DatabaseError(`Transaction failed: ${error.code}`, error);
+        const prismaError = error as { code: string };
+        throw new DatabaseError(`Transaction failed: ${prismaError.code}`, error);
       }
       throw new DatabaseError('Transaction failed with unknown error', error);
     }

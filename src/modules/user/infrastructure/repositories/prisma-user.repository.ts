@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, User } from '@/generated/prisma/client';
+import { Prisma, User, SystemRole } from '@/generated/prisma/client';
 import { UserEntity } from '../../domain/entities/user.entity';
 import { Role } from '../../domain/enums/role.enum';
 import {
@@ -20,22 +20,40 @@ import {
 export class PrismaUserRepository implements IUserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  private isPrismaKnownError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+    return error instanceof Prisma.PrismaClientKnownRequestError;
+  }
+
+  private mapRoleToPrismaRole(role: Role): SystemRole {
+    switch (role) {
+      case Role.USER:
+        return SystemRole.user;
+      case Role.ADMIN:
+        return SystemRole.admin;
+      default:
+        return SystemRole.user;
+    }
+  }
+
   private mapToDomain(user: User): UserEntity {
-    const firstName = user.firstName ?? '';
-    const lastName = user.lastName ?? '';
+    const fullName = user.fullName ?? '';
+    // Split fullName into firstName and lastName for backward compatibility
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] ?? '';
+    const lastName = nameParts.slice(1).join(' ') ?? '';
 
     return UserEntity.reconstitute({
       id: user.id,
       email: user.email,
       firstName,
       lastName,
-      role: user.role as Role,
+      role: user.systemRole as Role,
       isActive: user.isActive,
-      isEmailVerified: user.isEmailVerified,
+      isEmailVerified: true, // Default to true since schema doesn't have this field
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      deletedAt: user.deletedAt,
-      passwordHash: user.passwordHash || null,
+      deletedAt: null, // Schema doesn't have deletedAt field
+      passwordHash: user.passwordHash ?? null,
     });
   }
 
@@ -81,20 +99,23 @@ export class PrismaUserRepository implements IUserRepository {
       const created = await this.prisma.user.create({
         data: {
           email: data.email,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          role: data.role,
+          fullName: `${data.firstName} ${data.lastName}`.trim(),
+          systemRole: this.mapRoleToPrismaRole(data.role),
           passwordHash: data.passwordHash,
           isActive: true,
-          isEmailVerified: false,
         },
       });
       return this.mapToDomain(created);
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new UserAlreadyExistsError(data.email);
+    } catch (error: unknown) {
+      if (this.isPrismaKnownError(error)) {
+        const prismaError = error as { code: string };
+        const errorCode = prismaError.code;
+        if (errorCode === 'P2002') {
+          throw new UserAlreadyExistsError(data.email);
+        }
+        throw new DatabaseError('create failed', error);
       }
-      throw new DatabaseError('create failed', error);
+      throw error;
     }
   }
 
@@ -103,18 +124,24 @@ export class PrismaUserRepository implements IUserRepository {
       const updated = await this.prisma.user.update({
         where: { id },
         data: {
-          ...(data.firstName != null && { firstName: data.firstName }),
-          ...(data.lastName != null && { lastName: data.lastName }),
-          ...(data.role != null && { role: data.role }),
+          ...(data.firstName != null && {
+            fullName: `${data.firstName} ${data.lastName ?? ''}`.trim(),
+          }),
+          ...(data.role != null && { systemRole: this.mapRoleToPrismaRole(data.role) }),
           updatedAt: new Date(),
         },
       });
       return this.mapToDomain(updated);
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new UserNotFoundException(id);
+    } catch (error: unknown) {
+      if (this.isPrismaKnownError(error)) {
+        const prismaError = error as { code: string };
+        const errorCode = prismaError.code;
+        if (errorCode === 'P2025') {
+          throw new UserNotFoundException(id);
+        }
+        throw new DatabaseError('update failed', error);
       }
-      throw new DatabaseError('update failed', error);
+      throw error;
     }
   }
 
@@ -122,13 +149,18 @@ export class PrismaUserRepository implements IUserRepository {
     try {
       await this.prisma.user.update({
         where: { id },
-        data: { deletedAt: new Date(), isActive: false },
+        data: { isActive: false },
       });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new UserNotFoundException(id);
+    } catch (error: unknown) {
+      if (this.isPrismaKnownError(error)) {
+        const prismaError = error as { code: string };
+        const errorCode = prismaError.code;
+        if (errorCode === 'P2025') {
+          throw new UserNotFoundException(id);
+        }
+        throw new DatabaseError('delete failed', error);
       }
-      throw new DatabaseError('delete failed', error);
+      throw error;
     }
   }
 

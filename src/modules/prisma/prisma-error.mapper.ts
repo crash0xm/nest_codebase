@@ -7,12 +7,15 @@ import {
 import { DatabaseError } from '@/common/errors/infrastructure.error';
 
 export class PrismaErrorMapper {
+  private static isPrismaKnownError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+    return error instanceof Prisma.PrismaClientKnownRequestError;
+  }
+
   static toApplicationError(error: unknown, context: { entity: string; id?: string }): never {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      const prismaError = error;
-      const errorCode: string = prismaError.code;
-      const errorMeta: Record<string, unknown> =
-        (prismaError.meta as Record<string, unknown>) ?? {};
+    if (this.isPrismaKnownError(error)) {
+      const prismaError = error as { code: string; meta?: unknown };
+      const errorCode = prismaError.code;
+      const errorMeta = (prismaError.meta ?? {}) as Record<string, unknown>;
 
       switch (errorCode) {
         case 'P2002':
@@ -28,7 +31,12 @@ export class PrismaErrorMapper {
             400,
           );
         default:
-          throw new DatabaseError(`error [${errorCode}] for ${context.entity}`, error);
+          throw new DatabaseError(
+            errorCode
+              ? `error [${errorCode}] for ${context.entity}`
+              : `error for ${context.entity}`,
+            error,
+          );
       }
     }
     throw new DatabaseError(`Unexpected error for ${context.entity}`, error);
