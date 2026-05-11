@@ -11,7 +11,7 @@ import { PrismaService } from '@/modules/prisma/prisma.service';
 import { PrismaBaseRepository } from '@/common/repositories/prisma-base.repository';
 import { AppLoggerService } from '@/common/services/logger.service';
 
-/** DB row shape for Product (mirrors Prisma model; avoids ESLint failures resolving generated types). */
+/** DB row shape for Product (mirrors Prisma model). */
 interface ProductRow {
   id: string;
   name: string;
@@ -61,21 +61,20 @@ export class PrismaProductRepository
 
   async findById(id: string): Promise<ProductEntity | null> {
     const product = await super.findById(id);
-    return product ? this.mapToDomain(product as unknown as ProductRow) : null;
+    return product ? this.mapToDomain(product) : null;
   }
 
   async findAll(options: PaginationOptions): Promise<PaginatedResult<ProductEntity>> {
     const { page, limit, sortBy = 'createdAt', sortOrder = 'desc' } = options;
 
-    const result = await super.findManyWithPagination(undefined, {
+    const result = await super.findManyWithPagination({
       page,
       limit,
-      sortBy,
-      sortOrder,
+      sort: [{ field: sortBy, order: sortOrder }],
     });
 
     return {
-      data: result.data.map((product) => this.mapToDomain(product as unknown as ProductRow)),
+      data: result.data.map((product) => this.mapToDomain(product)),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -85,8 +84,8 @@ export class PrismaProductRepository
   async create(data: Record<string, unknown>): Promise<ProductEntity>;
   async create(data: CreateProductDto): Promise<ProductEntity>;
   async create(data: Record<string, unknown> | CreateProductDto): Promise<ProductEntity> {
-    const product = await super.create(data as Record<string, unknown>);
-    return this.mapToDomain(product as unknown as ProductRow);
+    const product = await super.create(data as Partial<ProductRow>);
+    return this.mapToDomain(product);
   }
 
   async update(id: string, data: Record<string, unknown>): Promise<ProductEntity>;
@@ -95,23 +94,15 @@ export class PrismaProductRepository
     id: string,
     data: Record<string, unknown> | UpdateProductDto,
   ): Promise<ProductEntity> {
-    const product = await super.update(id, data as Record<string, unknown>);
-    return this.mapToDomain(product as unknown as ProductRow);
+    const product = await super.update(id, data as Partial<ProductRow>);
+    return this.mapToDomain(product);
   }
 
   async delete(id: string): Promise<void> {
     await super.delete(id);
   }
 
-  async count(where?: Record<string, unknown>): Promise<number> {
-    return super.count(where);
-  }
-
-  async exists(where: Record<string, unknown>): Promise<boolean> {
-    return super.exists(where);
-  }
-
   async existsByName(name: string): Promise<boolean> {
-    return super.exists({ name });
+    return super.exists({ filters: [{ field: 'name', operator: 'eq', value: name }] });
   }
 }

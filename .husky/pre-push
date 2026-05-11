@@ -10,6 +10,19 @@ echo "${BLUE}━━━━━━━━━━━━━━━━━━━━━━�
 echo "${YELLOW}🧪 PRE-PUSH VALIDATION CHECKS${NC}"
 echo "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
+# Block .env files from being pushed
+REMOTE_REF="${2:-origin/HEAD}"
+ENV_FILES=$(git diff --name-only "$REMOTE_REF"..HEAD 2>/dev/null | grep -E '^\.env' || true)
+if [ -z "$ENV_FILES" ]; then
+  ENV_FILES=$(git log --name-only --format="" HEAD~1..HEAD 2>/dev/null | grep -E '^\.env' || true)
+fi
+if [ -n "$ENV_FILES" ]; then
+  echo "${RED}✗ BLOCKED: .env files detected in commits being pushed${NC}"
+  echo "$ENV_FILES" | sed 's/^/  • /'
+  echo "${RED}Remove them with git filter-branch before pushing${NC}"
+  exit 1
+fi
+
 # Check if there are any TypeScript/JS changes
 changed_files=$(git diff --name-only HEAD origin/HEAD~ -- '*.ts' '*.js' 2>/dev/null || echo "")
 

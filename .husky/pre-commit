@@ -8,6 +8,17 @@ NC='\033[0m'
 
 set -e  # Exit immediately if any command fails
 
+# Step 0: Block .env files
+STAGED_ENV_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^\.env' || true)
+if [ -n "$STAGED_ENV_FILES" ]; then
+  echo "${RED}✗ BLOCKED: .env files detected in staged changes${NC}"
+  echo "${YELLOW}The following .env files are being committed:${NC}"
+  echo "$STAGED_ENV_FILES" | sed 's/^/  • /'
+  echo "${RED}Environment files must NEVER be committed to version control.${NC}"
+  echo "${YELLOW}Unstage them with: git reset HEAD $STAGED_ENV_FILES${NC}"
+  exit 1
+fi
+
 # Step 1: Lint-staged
 echo "${YELLOW}[1/5] Running lint-staged on staged files...${NC}"
 if ! pnpm lint-staged --verbose; then

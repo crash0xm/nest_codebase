@@ -13,6 +13,7 @@ describe('PrismaUserRepository', () => {
       create: jest.Mock;
       update: jest.Mock;
       delete: jest.Mock;
+      findFirst: jest.Mock;
     };
   };
   let logger: {
@@ -30,6 +31,7 @@ describe('PrismaUserRepository', () => {
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        findFirst: jest.fn(),
       },
     };
     logger = {
@@ -51,17 +53,20 @@ describe('PrismaUserRepository', () => {
 
   describe('findById', () => {
     it('should return UserEntity if user found', async () => {
+      const now = new Date();
       const dbUser = {
         id: '1',
         email: 'test@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        role: 'user',
+        passwordHash: 'hashed',
+        fullName: 'John Doe',
+        locale: 'vi',
+        timezone: 'Asia/Ho_Chi_Minh',
+        avatarUrl: null,
+        systemRole: 'user',
         isActive: true,
-        isEmailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
+        lastLoginAt: null,
+        createdAt: now,
+        updatedAt: now,
       };
       prisma.user.findUnique.mockResolvedValue(dbUser);
 
@@ -69,6 +74,8 @@ describe('PrismaUserRepository', () => {
 
       expect(result).toBeDefined();
       expect(result?.id).toBe('1');
+      expect(result?.firstName).toBe('John');
+      expect(result?.lastName).toBe('Doe');
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
       });

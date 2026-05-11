@@ -1,14 +1,14 @@
-export interface QueryOptions<T = Record<string, unknown>> {
-  include?: T;
-  select?: T;
-  where?: T;
-  orderBy?: T;
-}
+import { FindOptions } from '@/common/types/query.types';
+import { PaginatedResult } from '@/common/types/pagination.types';
 
-export abstract class BaseRepository<T, TId = string> {
-  abstract findById(id: TId): Promise<T | null>;
-  abstract findMany(filter?: Record<string, unknown>): Promise<T[]>;
-  abstract create(data: unknown): Promise<T>;
-  abstract update(id: TId, data: Record<string, unknown>): Promise<T>;
+export abstract class BaseRepository<T, TEntity = T, TId = string> {
+  abstract findById(id: TId, options?: FindOptions): Promise<TEntity | null>;
+  abstract findOne(options: FindOptions): Promise<TEntity | null>;
+  abstract findMany(options?: FindOptions): Promise<TEntity[]>;
+  abstract findManyWithPagination(options?: FindOptions): Promise<PaginatedResult<TEntity>>;
+  abstract create(data: Partial<T>): Promise<TEntity>;
+  abstract update(id: TId, data: Partial<T>): Promise<TEntity>;
   abstract delete(id: TId): Promise<void>;
+  abstract count(options?: FindOptions): Promise<number>;
+  abstract exists(options?: FindOptions): Promise<boolean>;
 }

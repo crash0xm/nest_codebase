@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, User, SystemRole } from '@prisma/client';
+import { Prisma, SystemRole } from '@prisma/client';
 import { UserEntity } from '../../domain/entities/user.entity';
 import { Role } from '../../domain/enums/role.enum';
 import {
@@ -10,18 +10,50 @@ import {
   UpdateUserDto,
 } from '../../domain/repositories/user.repository.interface';
 import { PrismaService } from '@/modules/prisma/prisma.service';
-import { DatabaseError } from '@/common/errors/infrastructure.error';
+import { AppLoggerService } from '@/common/services/logger.service';
+import { PrismaBaseRepository } from '@/common/repositories/prisma-base.repository';
+import { FindOptions } from '@/common/types/query.types';
 import {
   UserAlreadyExistsError,
   UserNotFoundException,
 } from '@/common/domain/errors/application.error';
 
-@Injectable()
-export class PrismaUserRepository implements IUserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+interface UserRow {
+  id: string;
+  email: string;
+  passwordHash: string;
+  fullName: string | null;
+  locale: string;
+  timezone: string;
+  avatarUrl: string | null;
+  systemRole: SystemRole;
+  isActive: boolean;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-  private isPrismaKnownError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
-    return error instanceof Prisma.PrismaClientKnownRequestError;
+type UserModelDelegate = {
+  findUnique(args: Record<string, unknown>): Promise<UserRow | null>;
+  findMany(args?: Record<string, unknown>): Promise<UserRow[]>;
+  count(args?: Record<string, unknown>): Promise<number>;
+  create(args: Record<string, unknown>): Promise<UserRow>;
+  update(args: Record<string, unknown>): Promise<UserRow>;
+  delete(args: Record<string, unknown>): Promise<void>;
+  findFirst(args?: Record<string, unknown>): Promise<UserRow | null>;
+};
+
+@Injectable()
+export class PrismaUserRepository
+  extends PrismaBaseRepository<UserRow, UserEntity>
+  implements IUserRepository
+{
+  constructor(prisma: PrismaService, logger: AppLoggerService) {
+    super(prisma, logger, 'User');
+  }
+
+  protected getModelDelegate(): UserModelDelegate {
+    return (this.prisma as unknown as { user: UserModelDelegate }).user;
   }
 
   private mapRoleToPrismaRole(role: Role): SystemRole {
@@ -35,9 +67,8 @@ export class PrismaUserRepository implements IUserRepository {
     }
   }
 
-  private mapToDomain(user: User): UserEntity {
+  private mapToDomain(user: UserRow): UserEntity {
     const fullName = user.fullName ?? '';
-    // Split fullName into firstName and lastName for backward compatibility
     const nameParts = fullName.split(' ');
     const firstName = nameParts[0] ?? '';
     const lastName = nameParts.slice(1).join(' ') ?? '';
@@ -49,125 +80,99 @@ export class PrismaUserRepository implements IUserRepository {
       lastName,
       role: user.systemRole as Role,
       isActive: user.isActive,
-      isEmailVerified: true, // Default to true since schema doesn't have this field
+      isEmailVerified: true,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      deletedAt: null, // Schema doesn't have deletedAt field
+      deletedAt: null,
       passwordHash: user.passwordHash ?? null,
     });
   }
 
   async findByEmail(email: string): Promise<UserEntity | null> {
-    const user = await this.prisma.user.findUnique({
+    const delegate = this.getModelDelegate();
+    const user = await delegate.findUnique({
       where: { email: email.toLowerCase() },
     });
     return user ? this.mapToDomain(user) : null;
   }
 
-  async findById(id: string): Promise<UserEntity | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-    });
-    return user ? this.mapToDomain(user) : null;
+  async findById(id: string, options?: FindOptions): Promise<UserEntity | null> {
+    const user = await super.findById(id, options);
+    return user ? this.mapToDomain(user as unknown as UserRow) : null;
   }
 
   async findAll(options: PaginationOptions): Promise<PaginatedResult<UserEntity>> {
-    const where = { deletedAt: null, isActive: true };
     const { page, limit, sortBy = 'createdAt', sortOrder = 'desc' } = options;
-    const skip = (page - 1) * limit;
 
-    const [users, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-      }),
-      this.prisma.user.count({ where }),
-    ]);
-
-    return {
-      data: users.map((user) => this.mapToDomain(user)),
-      total,
+    const result = await super.findManyWithPagination({
       page,
       limit,
+      filters: [{ field: 'isActive', operator: 'eq', value: true }],
+      sort: [{ field: sortBy, order: sortOrder }],
+    });
+
+    return {
+      data: result.data.map((user) => this.mapToDomain(user as unknown as UserRow)),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
     };
   }
 
   async create(data: CreateUserDto): Promise<UserEntity> {
-    try {
-      const created = await this.prisma.user.create({
-        data: {
-          email: data.email,
-          fullName: `${data.firstName} ${data.lastName}`.trim(),
-          systemRole: this.mapRoleToPrismaRole(data.role),
-          passwordHash: data.passwordHash,
-          isActive: true,
-        },
-      });
-      return this.mapToDomain(created);
-    } catch (error: unknown) {
-      if (this.isPrismaKnownError(error)) {
-        const prismaError = error as { code: string };
-        const errorCode = prismaError.code;
-        if (errorCode === 'P2002') {
-          throw new UserAlreadyExistsError(data.email);
-        }
-        throw new DatabaseError('create failed', error);
-      }
-      throw error;
-    }
+    const created = await super.create({
+      email: data.email,
+      fullName: `${data.firstName} ${data.lastName}`.trim(),
+      systemRole: this.mapRoleToPrismaRole(data.role),
+      passwordHash: data.passwordHash,
+      isActive: true,
+      locale: 'vi',
+      timezone: 'Asia/Ho_Chi_Minh',
+    } as unknown as Partial<UserRow>);
+    return this.mapToDomain(created as unknown as UserRow);
   }
 
-  async update(id: string, data: UpdateUserDto): Promise<UserEntity> {
-    try {
-      const updated = await this.prisma.user.update({
-        where: { id },
-        data: {
-          ...(data.firstName != null && {
-            fullName: `${data.firstName} ${data.lastName ?? ''}`.trim(),
-          }),
-          ...(data.role != null && { systemRole: this.mapRoleToPrismaRole(data.role) }),
-          updatedAt: new Date(),
-        },
-      });
-      return this.mapToDomain(updated);
-    } catch (error: unknown) {
-      if (this.isPrismaKnownError(error)) {
-        const prismaError = error as { code: string };
-        const errorCode = prismaError.code;
-        if (errorCode === 'P2025') {
-          throw new UserNotFoundException(id);
-        }
-        throw new DatabaseError('update failed', error);
-      }
-      throw error;
+  async update(id: string, data: Partial<UserRow> | UpdateUserDto): Promise<UserEntity> {
+    const updateData: Partial<UserRow> = {};
+    const updateDto = data as UpdateUserDto;
+    if (updateDto.firstName != null) {
+      updateData.fullName = `${updateDto.firstName} ${updateDto.lastName ?? ''}`.trim();
     }
+    if (updateDto.role != null) {
+      updateData.systemRole = this.mapRoleToPrismaRole(updateDto.role);
+    }
+
+    const updated = await super.update(id, updateData);
+    return this.mapToDomain(updated as unknown as UserRow);
   }
 
   async delete(id: string): Promise<void> {
-    try {
-      await this.prisma.user.update({
-        where: { id },
-        data: { isActive: false },
-      });
-    } catch (error: unknown) {
-      if (this.isPrismaKnownError(error)) {
-        const prismaError = error as { code: string };
-        const errorCode = prismaError.code;
-        if (errorCode === 'P2025') {
-          throw new UserNotFoundException(id);
-        }
-        throw new DatabaseError('delete failed', error);
-      }
-      throw error;
-    }
+    await super.update(id, { isActive: false } as unknown as Partial<UserRow>);
   }
 
   async existsByEmail(email: string): Promise<boolean> {
-    const user = await this.prisma.user.findFirst({
+    const delegate = this.getModelDelegate();
+    const user = await delegate.findFirst({
       where: { email: email.toLowerCase() },
     });
     return !!user;
+  }
+
+  protected handleExecuteError(
+    operation: string,
+    error: unknown,
+    metadata?: Record<string, unknown>,
+  ): never {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        throw new UserAlreadyExistsError(
+          (metadata?.data as { email?: string })?.email ?? 'unknown',
+        );
+      }
+      if (error.code === 'P2025') {
+        throw new UserNotFoundException((metadata?.id as string) ?? 'unknown');
+      }
+    }
+    super.handleExecuteError(operation, error, metadata);
   }
 }

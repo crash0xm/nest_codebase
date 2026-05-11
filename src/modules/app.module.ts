@@ -15,6 +15,7 @@ import securityConfig from '@config/security/security.config';
 import throttlerConfig from '@config/throttler/throttler.config';
 import { AppClsModule } from '@modules/cls/cls.module';
 import { PrismaModule } from '@modules/prisma/prisma.module';
+import { TypeOrmModule } from '@modules/typeorm/typeorm.module';
 import { RedisModule } from '@modules/redis/redis.module';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
@@ -124,6 +125,7 @@ import { UserModule } from '@modules/user/user.module';
 
     // ── Core Infrastructure ───────────────────────────────────────────────────
     PrismaModule,
+    TypeOrmModule,
     RedisModule,
 
     // ── Observability ─────────────────────────────────────────────────────────

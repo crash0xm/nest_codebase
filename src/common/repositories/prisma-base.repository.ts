@@ -2,14 +2,30 @@ import { PrismaService } from '@/modules/prisma/prisma.service';
 import { AppLoggerService, LogContext } from '@/common/services/logger.service';
 import { ApplicationError } from '@/common/domain/errors/application.error';
 import { DatabaseError } from '@/common/errors/infrastructure.error';
-import { BaseRepository, QueryOptions } from './base.repository';
-import {
-  PaginationOptions,
-  PaginatedResult,
-  buildPaginationMeta,
-} from '@/common/types/pagination.types';
+import { BaseRepository } from './base.repository';
+import { FindOptions, QueryFilter, QuerySort, QueryRelation } from '@/common/types/query.types';
+import { PaginatedResult, buildPaginationMeta } from '@/common/types/pagination.types';
 
-export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
+type PrismaDelegate = {
+  findUnique(args: Record<string, unknown>): Promise<unknown>;
+  findMany(args?: Record<string, unknown>): Promise<unknown[]>;
+  count(args?: Record<string, unknown>): Promise<number>;
+  create(args: Record<string, unknown>): Promise<unknown>;
+  update(args: Record<string, unknown>): Promise<unknown>;
+  delete(args: Record<string, unknown>): Promise<void>;
+  findFirst(args?: Record<string, unknown>): Promise<unknown>;
+};
+
+type CompareOperator = 'gt' | 'gte' | 'lt' | 'lte';
+
+const COMPARE_OPS: Record<CompareOperator, string> = {
+  gt: 'gt',
+  gte: 'gte',
+  lt: 'lt',
+  lte: 'lte',
+};
+
+export abstract class PrismaBaseRepository<T, TEntity = T> extends BaseRepository<T, TEntity> {
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly logger: AppLoggerService,
@@ -18,15 +34,107 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
     super();
   }
 
-  protected abstract getModelDelegate(): {
-    findUnique(args: Record<string, unknown>): Promise<T | null>;
-    findMany(args?: Record<string, unknown>): Promise<T[]>;
-    count(args?: Record<string, unknown>): Promise<number>;
-    create(args: Record<string, unknown>): Promise<T>;
-    update(args: Record<string, unknown>): Promise<T>;
-    delete(args: Record<string, unknown>): Promise<void>;
-    findFirst(args?: Record<string, unknown>): Promise<T | null>;
-  };
+  protected abstract getModelDelegate(): PrismaDelegate;
+
+  // ── Translation layer: FindOptions → Prisma args ─────────────────────
+
+  private buildPrismaWhere(filters?: QueryFilter[]): Record<string, unknown> | undefined {
+    if (!filters?.length) return undefined;
+
+    const where: Record<string, unknown> = {};
+    for (const f of filters) {
+      switch (f.operator) {
+        case 'eq':
+          where[f.field] = f.value;
+          break;
+        case 'ne':
+          where[f.field] = { not: f.value };
+          break;
+        case 'gt':
+        case 'gte':
+        case 'lt':
+        case 'lte':
+          where[f.field] = { [COMPARE_OPS[f.operator]]: f.value };
+          break;
+        case 'like':
+          where[f.field] = { contains: String(f.value).replace(/%/g, '') };
+          break;
+        case 'ilike':
+          where[f.field] = {
+            contains: String(f.value).replace(/%/g, ''),
+            mode: 'insensitive',
+          };
+          break;
+        case 'in':
+          where[f.field] = { in: f.value as unknown[] };
+          break;
+        case 'nin':
+          where[f.field] = { notIn: f.value as unknown[] };
+          break;
+        case 'isNull':
+          where[f.field] = null;
+          break;
+        case 'isNotNull':
+          where[f.field] = { not: null };
+          break;
+        case 'between': {
+          const arr = f.value as [unknown, unknown];
+          where[f.field] = { gte: arr[0], lte: arr[1] };
+          break;
+        }
+      }
+    }
+    return where;
+  }
+
+  private buildPrismaSort(sort?: QuerySort[]): Record<string, 'asc' | 'desc'> | undefined {
+    if (!sort?.length) return undefined;
+    const orderBy: Record<string, 'asc' | 'desc'> = {};
+    for (const s of sort) orderBy[s.field] = s.order;
+    return orderBy;
+  }
+
+  private buildPrismaInclude(relations?: QueryRelation[]): Record<string, unknown> | undefined {
+    if (!relations?.length) return undefined;
+    const include: Record<string, unknown> = {};
+    for (const rel of relations) {
+      include[rel.field] = rel.select
+        ? { select: Object.fromEntries(rel.select.map((s) => [s, true])) }
+        : true;
+    }
+    return include;
+  }
+
+  private buildPrismaSelect(select?: string[]): Record<string, true> | undefined {
+    if (!select?.length) return undefined;
+    return Object.fromEntries(select.map((s) => [s, true]));
+  }
+
+  protected toPrismaArgs(options?: FindOptions): Record<string, unknown> {
+    if (!options) return {};
+    const args: Record<string, unknown> = {};
+
+    const where = this.buildPrismaWhere(options.filters);
+    if (where) args.where = where;
+
+    const orderBy = this.buildPrismaSort(options.sort);
+    if (orderBy) args.orderBy = orderBy;
+
+    const include = this.buildPrismaInclude(options.relations);
+    if (include) args.include = include;
+
+    const select = this.buildPrismaSelect(options.select);
+    if (select) args.select = select;
+
+    if (options.page != null && options.limit != null) {
+      args.skip = (options.page - 1) * options.limit;
+      args.take = options.limit;
+    }
+
+    return args;
+  }
+
+  // ── Execute with logging ────────────────────────────────────────────
 
   protected async executeWithLogging<R>(
     operation: string,
@@ -38,10 +146,10 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
     try {
       const result = await callback();
       timer();
-      this.logger.database(`${this.modelName} ${operation} completed successfully`, {
-        ...metadata,
+      this.logger.database(`${this.modelName} ${operation} completed`, {
         operation: `${this.modelName}.${operation}`,
         success: true,
+        ...metadata,
       });
       return result;
     } catch (error) {
@@ -51,16 +159,16 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
         error as Error,
         LogContext.DATABASE,
         {
-          ...metadata,
           operation: `${this.modelName}.${operation}`,
           success: false,
+          ...metadata,
         },
       );
       return this.handleExecuteError(operation, error, metadata);
     }
   }
 
-  private handleExecuteError(
+  protected handleExecuteError(
     operation: string,
     error: unknown,
     metadata?: Record<string, unknown>,
@@ -70,9 +178,9 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
       error as Error,
       LogContext.DATABASE,
       {
-        ...metadata,
         operation: `${this.modelName}.${operation}`,
         success: false,
+        ...metadata,
       },
     );
 
@@ -83,110 +191,94 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
     throw new DatabaseError(`${operation} failed for ${this.modelName}`, error);
   }
 
-  async findById(id: string, options?: QueryOptions): Promise<T | null> {
+  // ── Standard CRUD ───────────────────────────────────────────────────
+
+  async findById(id: string, options?: FindOptions): Promise<TEntity | null> {
     return this.executeWithLogging(
       'findById',
       async () => {
         const model = this.getModelDelegate();
-        return model.findUnique({
-          where: { id },
-          ...options,
-        });
+        const prismaArgs = this.toPrismaArgs(options);
+        return model.findUnique({ where: { id }, ...prismaArgs }) as Promise<TEntity | null>;
       },
       { id },
     );
   }
 
-  async findMany(where?: Record<string, unknown>, options?: QueryOptions): Promise<T[]> {
+  async findOne(options: FindOptions): Promise<TEntity | null> {
+    return this.executeWithLogging(
+      'findOne',
+      async () => {
+        const model = this.getModelDelegate();
+        const prismaArgs = this.toPrismaArgs(options);
+        return model.findFirst(prismaArgs) as Promise<TEntity | null>;
+      },
+      { options },
+    );
+  }
+
+  async findMany(options?: FindOptions): Promise<TEntity[]> {
     return this.executeWithLogging(
       'findMany',
       async () => {
         const model = this.getModelDelegate();
-        return model.findMany({
-          where,
-          ...options,
-        });
+        const prismaArgs = this.toPrismaArgs(options);
+        return model.findMany(prismaArgs) as Promise<TEntity[]>;
       },
-      { where },
+      { options },
     );
   }
 
-  async findManyWithPagination(
-    where?: Record<string, unknown>,
-    pagination?: PaginationOptions,
-    options?: QueryOptions,
-  ): Promise<PaginatedResult<T>> {
+  async findManyWithPagination(options?: FindOptions): Promise<PaginatedResult<TEntity>> {
     return this.executeWithLogging(
       'findManyWithPagination',
       async () => {
         const model = this.getModelDelegate();
-        const page = pagination?.page ?? 1;
-        const limit = pagination?.limit ?? 10;
-        const skip = (page - 1) * limit;
+        const page = options?.page ?? 1;
+        const limit = options?.limit ?? 10;
+        const filters = options?.filters;
+
+        const where = this.buildPrismaWhere(filters);
 
         const total = await model.count({ where });
 
-        const orderBy = this.buildPaginationOrderBy(
-          pagination?.sortBy,
-          pagination?.sortOrder,
-          options?.orderBy,
-        );
-
+        const prismaArgs = this.toPrismaArgs(options);
         const data = await model.findMany({
-          where,
-          skip,
+          ...prismaArgs,
+          skip: (page - 1) * limit,
           take: limit,
-          orderBy,
-          ...options,
         });
 
         return {
-          data,
+          data: data as TEntity[],
           total,
           ...buildPaginationMeta(total, page, limit),
         };
       },
-      { where, pagination },
+      { options },
     );
   }
 
-  async create(data: Record<string, unknown>, options?: QueryOptions): Promise<T> {
+  async create(data: Partial<T>): Promise<TEntity> {
     return this.executeWithLogging(
       'create',
       async () => {
         const model = this.getModelDelegate();
-        return model.create({
-          data,
-          ...options,
-        });
+        return model.create({ data }) as Promise<TEntity>;
       },
       { data },
     );
   }
 
-  async update(id: string, data: Record<string, unknown>, options?: QueryOptions): Promise<T> {
+  async update(id: string, data: Partial<T>): Promise<TEntity> {
     return this.executeWithLogging(
       'update',
       async () => {
         const model = this.getModelDelegate();
-        return model.update({
-          where: { id },
-          data,
-          ...options,
-        });
+        return model.update({ where: { id }, data }) as Promise<TEntity>;
       },
       { id, data },
     );
-  }
-
-  private buildPaginationOrderBy(
-    sortBy: string | undefined,
-    sortOrder: string | undefined,
-    defaultOrderBy: unknown,
-  ): Record<string, unknown> {
-    return sortBy != null
-      ? { [sortBy]: sortOrder ?? 'asc' }
-      : ((defaultOrderBy as Record<string, unknown>) ?? {});
   }
 
   async delete(id: string): Promise<void> {
@@ -194,53 +286,38 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
       'delete',
       async () => {
         const model = this.getModelDelegate();
-        await model.delete({
-          where: { id },
-        });
+        await model.delete({ where: { id } });
       },
       { id },
     );
   }
 
-  protected async findOne(
-    where?: Record<string, unknown>,
-    options?: QueryOptions,
-  ): Promise<T | null> {
-    return this.executeWithLogging(
-      'findOne',
-      async () => {
-        const model = this.getModelDelegate();
-        return model.findFirst({
-          where,
-          ...options,
-        });
-      },
-      { where },
-    );
-  }
-
-  protected async count(where?: Record<string, unknown>): Promise<number> {
+  async count(options?: FindOptions): Promise<number> {
     return this.executeWithLogging(
       'count',
       async () => {
         const model = this.getModelDelegate();
+        const where = this.buildPrismaWhere(options?.filters);
         return model.count({ where });
       },
-      { where },
+      { options },
     );
   }
 
-  protected async exists(where?: Record<string, unknown>): Promise<boolean> {
+  async exists(options?: FindOptions): Promise<boolean> {
     return this.executeWithLogging(
       'exists',
       async () => {
         const model = this.getModelDelegate();
+        const where = this.buildPrismaWhere(options?.filters);
         const result = await model.count({ where });
         return result > 0;
       },
-      { where },
+      { options },
     );
   }
+
+  // ── Transaction ─────────────────────────────────────────────────────
 
   protected async runInTransaction<R>(
     callback: (tx: unknown) => Promise<R>,
@@ -248,13 +325,17 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
   ): Promise<R> {
     return this.executeWithLogging(
       'transaction',
-      () =>
-        this.prisma.$transaction(
-          callback as (tx: import('@prisma/client').Prisma.TransactionClient) => Promise<R>,
-        ),
+      async () => {
+        const prismaTx = this.prisma as unknown as {
+          $transaction: <R>(fn: (tx: unknown) => Promise<R>) => Promise<R>;
+        };
+        return prismaTx.$transaction(callback);
+      },
       metadata,
     );
   }
+
+  // ── Health ──────────────────────────────────────────────────────────
 
   protected async healthCheck(): Promise<{
     connected: boolean;
@@ -264,19 +345,15 @@ export abstract class PrismaBaseRepository<T> extends BaseRepository<T> {
     const startTime = Date.now();
 
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      const responseTime = Date.now() - startTime;
-
-      return {
-        connected: true,
-        responseTime,
+      const prismaRaw = this.prisma as unknown as {
+        $queryRaw: (strings: TemplateStringsArray) => Promise<unknown>;
       };
+      await prismaRaw.$queryRaw`SELECT 1`;
+      return { connected: true, responseTime: Date.now() - startTime };
     } catch (error) {
-      const responseTime = Date.now() - startTime;
-
       return {
         connected: false,
-        responseTime,
+        responseTime: Date.now() - startTime,
         error: (error as Error).message,
       };
     }

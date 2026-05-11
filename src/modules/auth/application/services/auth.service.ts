@@ -32,6 +32,12 @@ export interface JwtPayload {
   exp?: number;
 }
 
+export interface PasswordResetPayload {
+  sub: string;
+  email: string;
+  type: 'password_reset';
+}
+
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -249,25 +255,9 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
+      const payload = await this.jwtService.verifyAsync<PasswordResetPayload>(token, {
         secret: this.authConf.jwt.accessToken.secret,
       });
-
-      // Type guard to ensure payload has required properties
-      if (
-        typeof payload !== 'object' ||
-        payload === null ||
-        !('type' in payload) ||
-        !('sub' in payload) ||
-        typeof payload.type !== 'string' ||
-        typeof payload.sub !== 'string'
-      ) {
-        throw new Error('Invalid token payload');
-      }
-
-      if (payload.type !== 'password_reset') {
-        throw new Error('Invalid token type');
-      }
 
       const user = await this.userRepository.findById(payload.sub);
       if (!user) {
