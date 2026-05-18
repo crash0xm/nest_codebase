@@ -10,3 +10,9 @@ export interface SendAccountUpdateEmailJob {
   firstName: string;
   changes: Record<string, unknown>;
 }
+
+export interface SendPasswordResetEmailJob {
+  userId: string;
+  email: string;
+  resetToken: string;
+}

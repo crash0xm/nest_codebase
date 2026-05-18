@@ -14,6 +14,9 @@ import authConfig from '@config/auth/auth.config';
 import securityConfig from '@config/security/security.config';
 import throttlerConfig from '@config/throttler/throttler.config';
 import cacheConfig from '@config/cache/cache.config';
+import emailConfig from '@config/email/email.config';
+import storageConfig from '@config/storage/storage.config';
+import workerConfig from '@config/worker/worker.config';
 import { AppClsModule } from '@modules/cls/cls.module';
 import { TypeOrmModule } from '@modules/typeorm/typeorm.module';
 import { RedisModule } from '@modules/redis/redis.module';
@@ -24,6 +27,7 @@ import { AuthGuard } from '@common/guards/auth.guard';
 import { AuthorizationGuard } from '@common/guards/authorization.guard';
 import { AppLoggerService } from '@common/services/logger.service';
 import { ResourceOwnershipService } from '@common/services/resource-ownership.service';
+import { IntegrationsModule } from '@common/integrations/integrations.module';
 
 import { HealthModule } from '@modules/health/health.module';
 import { MetricsModule } from '@modules/metrics/metrics.module';
@@ -43,6 +47,9 @@ import { UserModule } from '@modules/user/user.module';
         securityConfig,
         throttlerConfig,
         cacheConfig,
+        emailConfig,
+        storageConfig,
+        workerConfig,
       ],
       envFilePath: ['.env.local', '.env'],
       expandVariables: true,
@@ -108,6 +115,12 @@ import { UserModule } from '@modules/user/user.module';
             port: config.get<number>('redis.port'),
             password: config.get<string>('redis.password') ?? undefined,
           },
+          defaultJobOptions: {
+            removeOnComplete: { count: 100 },
+            removeOnFail: { count: 50 },
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 2000 },
+          },
         };
       },
     }),
@@ -134,6 +147,9 @@ import { UserModule } from '@modules/user/user.module';
     // ── Core Infrastructure ───────────────────────────────────────────────────
     TypeOrmModule,
     RedisModule,
+
+    // ── Third-party Integrations ──────────────────────────────────────────────
+    IntegrationsModule.forRoot(),
 
     // ── Observability ─────────────────────────────────────────────────────────
     HealthModule,

@@ -15,7 +15,6 @@ import {
   ILike,
   Between,
   EntityManager,
-  UpdateResult,
 } from 'typeorm';
 import { TypeOrmService } from '@/modules/typeorm/typeorm.service';
 import { AppLoggerService, LogContext } from '@/common/services/logger.service';
@@ -293,7 +292,8 @@ export abstract class TypeOrmBaseRepository<
           .set(data as DeepPartial<ObjectLiteral>)
           .where('id = :id', { id: id as unknown as string })
           .returning('*');
-        const { raw }: UpdateResult = await typedQb.execute();
+        const updateResult = await typedQb.execute();
+        const raw = updateResult.raw as Record<string, unknown>[] | undefined;
         if (!raw?.length) {
           throw new DatabaseError(`Update failed: ${this.entityName} ${String(id)} not found`);
         }

@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
 import type {
   StorageProvider,
@@ -16,7 +16,7 @@ export class StorageService {
   private readonly provider: StorageProvider;
 
   constructor(
-    @Inject('ConfigService') private readonly configService: ConfigService,
+    private readonly configService: ConfigService,
     @Inject('StorageProvider') provider: StorageProvider,
   ) {
     this.provider = provider;

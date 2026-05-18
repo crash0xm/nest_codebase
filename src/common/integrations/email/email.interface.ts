@@ -74,3 +74,4 @@ export interface EmailConfig {
 }
 
 export const EMAIL_CONFIG_KEY = 'email';
+export const EMAIL_PROVIDER_TOKEN = 'EmailProvider';

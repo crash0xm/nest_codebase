@@ -52,7 +52,7 @@ import { UserModule } from '../user/user.module';
       useClass: RedisTokenStore,
     },
   ],
-  exports: [AuthService, INJECTION_TOKENS.TOKEN_STORE, AuthGuard],
+  exports: [AuthService, INJECTION_TOKENS.TOKEN_STORE, AuthGuard, JwtModule],
 })
 export class AuthModule {
   private static parseExpiresIn(expiresIn: string | number): number {
