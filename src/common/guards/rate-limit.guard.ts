@@ -1,9 +1,11 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, Inject } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppLoggerService } from '@/common/services/logger.service';
 import { ApplicationError } from '@/common/domain/errors/application.error';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from '@/modules/redis/redis.module';
 
 type RateLimitedFastifyRequest = FastifyRequest & {
   user?: { id: string };
@@ -39,11 +41,12 @@ export class RateLimitGuard implements CanActivate {
     private readonly reflector: Reflector,
     _configService: ConfigService,
     private readonly logger: AppLoggerService,
+    @Inject(REDIS_CLIENT) redis: Redis,
   ) {
-    this.store = new MemoryRateLimitStore(logger);
+    this.store = new RedisRateLimitStore(redis, logger);
     this.defaultOptions = {
-      windowMs: 60 * 1000, // 1 minute
-      max: 100, // 100 requests per minute
+      windowMs: 60 * 1000,
+      max: 100,
       message: 'Too many requests, please try again later.',
       skipSuccessfulRequests: false,
       skipFailedRequests: false,
@@ -154,6 +157,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
       },
       5 * 60 * 1000,
     );
+    this.cleanupInterval.unref();
   }
 
   increment(key: string, options: RateLimitOptions): RateLimitInfo {
@@ -240,26 +244,24 @@ export const RateLimit =
 // Redis-based rate limit store (for production)
 export class RedisRateLimitStore implements RateLimitStore {
   constructor(
-    private readonly redis: { pipeline: () => unknown; del: (key: string) => Promise<void> },
+    private readonly redis: Redis,
     private readonly logger: AppLoggerService,
   ) {}
 
   increment(key: string, options: RateLimitOptions): RateLimitInfo {
     const now = Date.now();
-    const resetTime = now + options.windowMs;
+    const resetTime = new Date(now + options.windowMs);
 
     const pipeline = this.redis.pipeline();
-    (pipeline as { incr: (key: string) => void; expire: (key: string, ttl: number) => void }).incr(
-      key,
-    );
-    (
-      pipeline as { incr: (key: string) => void; expire: (key: string, ttl: number) => void }
-    ).expire(key, Math.ceil(options.windowMs / 1000));
+    pipeline.incr(key);
+    pipeline.expire(key, Math.ceil(options.windowMs / 1000));
+    void pipeline.exec();
 
+    const totalHits = 1;
     return {
-      totalHits: 1,
-      remainingHits: Math.max(0, options.max - 1),
-      resetTime: new Date(resetTime),
+      totalHits,
+      remainingHits: Math.max(0, options.max - totalHits),
+      resetTime,
       windowMs: options.windowMs,
     };
   }
@@ -267,9 +269,7 @@ export class RedisRateLimitStore implements RateLimitStore {
   reset(key: string): void {
     void this.redis.del(key);
 
-    this.logger.http(`Rate limit reset for key: ${key}`, {
-      key,
-    });
+    this.logger.http(`Rate limit reset for key: ${key}`, { key });
   }
 
   cleanup(): void {

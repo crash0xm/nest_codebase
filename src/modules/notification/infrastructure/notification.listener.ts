@@ -7,6 +7,7 @@ import { UserCreatedEvent, UserUpdatedEvent } from '../../user/domain/events/use
 import type {
   SendWelcomeEmailJob,
   SendAccountUpdateEmailJob,
+  SendPasswordResetEmailJob,
 } from '../jobs/send-welcome-email.job';
 
 @Injectable()
@@ -26,6 +27,29 @@ export class NotificationListener {
     };
 
     await this.notificationQueue.add(NOTIFICATION_JOBS.SEND_WELCOME_EMAIL, jobData, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 50 },
+    });
+  }
+
+  @OnEvent('user.password-reset-requested')
+  async handlePasswordReset(event: {
+    userId: string;
+    email: string;
+    resetToken: string;
+    firstName: string;
+  }): Promise<void> {
+    this.logger.log(`[Notification] Enqueuing password reset email for userId=${event.userId}`);
+
+    const jobData: SendPasswordResetEmailJob = {
+      userId: event.userId,
+      email: event.email,
+      resetToken: event.resetToken,
+    };
+
+    await this.notificationQueue.add(NOTIFICATION_JOBS.SEND_PASSWORD_RESET_EMAIL, jobData, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 2000 },
       removeOnComplete: { count: 100 },

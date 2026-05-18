@@ -15,7 +15,9 @@ import { TypeOrmService } from './typeorm.service';
           type: 'postgres',
           url: config.get<string>('database.url'),
           autoLoadEntities: true,
-          synchronize: nodeEnv === 'development',
+          synchronize: false,
+          migrationsRun: nodeEnv === 'production',
+          migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
           logging: nodeEnv === 'development' ? ['error', 'warn'] : ['error'],
           ssl: false,
           extra: {

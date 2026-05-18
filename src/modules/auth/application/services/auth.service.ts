@@ -3,6 +3,7 @@ import type { SignOptions } from 'jsonwebtoken';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { v4 as uuidv4 } from 'uuid';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { ClsService } from 'nestjs-cls';
 import { Role } from '../../../user/domain/enums/role.enum';
@@ -14,13 +15,19 @@ import { USER_REPOSITORY, INJECTION_TOKENS } from '@/constants/injection-tokens'
 import {
   AccountDeletedError,
   AccountInactiveError,
+  ApplicationError,
   InvalidCredentialsError,
   InvalidTokenStructureError,
+  TokenInvalidError,
   TokenRevokedError,
+  UserNotFoundException,
+  UserAlreadyExistsError,
 } from '@/common/domain/errors/application.error';
 import { IPasswordHasher, PASSWORD_HASHER } from '@/common/services/password-hasher.service';
 import { AuthConfig } from '@/config/auth/auth-config.type';
 import { parseDurationToSeconds } from '@/common/utils/time/duration.util';
+import { UserCreatedEvent } from '../../../user/domain/events/user-created.event';
+import { splitFullName } from '@/common/utils/name.util';
 const AUTH_CONFIG_KEY = 'auth';
 
 export interface JwtPayload {
@@ -68,6 +75,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     @InjectMetric('active_sessions_total')
     private readonly sessionsGauge: Gauge,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private get authConf(): AuthConfig {
@@ -82,16 +90,13 @@ export class AuthService {
     // Check if user already exists
     const existingUser = await this.userRepository.findByEmail(email);
     if (existingUser) {
-      throw new Error('User with this email already exists');
+      throw new UserAlreadyExistsError(email);
     }
 
     // Hash password
     const passwordHash = await this.passwordHasher.hash(password);
 
-    // Split fullName into firstName and lastName
-    const nameParts = fullName.trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    const { firstName, lastName } = splitFullName(fullName);
 
     // Create new user with role = 'USER' (default)
     const newUser = await this.userRepository.create({
@@ -112,6 +117,11 @@ export class AuthService {
     // Issue tokens
     const tokens = await this.issueTokenPair(userPayload);
 
+    this.eventEmitter.emit(
+      'user.created',
+      new UserCreatedEvent(newUser.id, newUser.email, newUser.firstName, newUser.createdAt),
+    );
+
     this.logger.log(`[Auth] Registration success: userId=${newUser.id} email=${email}`);
 
     return { user: userPayload, tokens };
@@ -120,7 +130,7 @@ export class AuthService {
   async getUserById(id: string): Promise<UserEntity> {
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new Error('User not found');
+      throw new UserNotFoundException(id);
     }
     return user;
   }
@@ -226,11 +236,25 @@ export class AuthService {
   async forgotPassword(email: string): Promise<void> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      // Don't reveal if email exists or not for security
       return;
     }
 
-    this.logger.log(`[Auth] Password reset requested: userId=${user.id}`);
+    const resetToken = await this.jwtService.signAsync(
+      { sub: user.id, email: user.email, type: 'password_reset' },
+      {
+        secret: this.authConf.jwt.passwordReset.secret,
+        expiresIn: this.authConf.jwt.passwordReset.expiresIn,
+      } as SignOptions,
+    );
+
+    this.logger.log(`[Auth] Password reset token generated: userId=${user.id}`);
+
+    this.eventEmitter.emit('user.password-reset-requested', {
+      userId: user.id,
+      email: user.email,
+      resetToken,
+      firstName: user.firstName,
+    });
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
@@ -241,7 +265,7 @@ export class AuthService {
 
       const user = await this.userRepository.findById(payload.sub);
       if (!user) {
-        throw new Error('User not found');
+        throw new UserNotFoundException(payload.sub);
       }
 
       // Hash new password
@@ -255,7 +279,8 @@ export class AuthService {
       this.logger.log(`[Auth] Password reset successful: userId=${user.id}`);
     } catch (error) {
       this.logger.warn(`[Auth] Password reset failed: ${(error as Error).message}`);
-      throw new Error('Invalid or expired reset token');
+      if (error instanceof ApplicationError) throw error;
+      throw new TokenInvalidError('Invalid or expired reset token');
     }
   }
 
@@ -267,13 +292,13 @@ export class AuthService {
     // Get user to verify current password
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new UserNotFoundException(userId);
     }
 
     // Verify current password
     const isValid = await this.passwordHasher.verify(user.passwordHash ?? '', currentPassword);
     if (!isValid) {
-      throw new Error('Current password is incorrect');
+      throw new InvalidCredentialsError();
     }
 
     // Hash new password

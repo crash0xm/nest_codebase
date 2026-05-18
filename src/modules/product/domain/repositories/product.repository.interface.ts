@@ -21,6 +21,7 @@ export interface IProductRepository {
   update(id: string, data: UpdateProductDto): Promise<ProductEntity>;
   delete(id: string): Promise<void>;
   existsByName(name: string): Promise<boolean>;
+  isOwnedBy(productId: string, userId: string): Promise<boolean>;
 }
 
 export interface CreateProductDto {

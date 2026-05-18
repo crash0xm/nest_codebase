@@ -2,6 +2,7 @@ import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ClsService } from 'nestjs-cls';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { USER_REPOSITORY, INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { InvalidCredentialsError } from '@/common/domain/errors/application.error';
 import { createTestModule, PERFORMANCE_TOKENS } from '@/common/utils/test-helpers';
@@ -71,6 +72,7 @@ describe('AuthService', () => {
         { provide: INJECTION_TOKENS.TOKEN_STORE, useValue: tokenStore },
         { provide: ConfigService, useValue: configService },
         { provide: ClsService, useValue: cls },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         {
           provide: PERFORMANCE_TOKENS.ACTIVE_SESSIONS_TOTAL,
           useValue: { dec: jest.fn(), inc: jest.fn() },

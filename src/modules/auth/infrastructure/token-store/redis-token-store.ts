@@ -18,10 +18,11 @@ export class RedisTokenStore implements ITokenStore, OnModuleDestroy {
   private readonly logger = new Logger(RedisTokenStore.name);
   private readonly redisTokenStore: Redis;
   private readonly keyPrefix: string;
-  private readonly MAX_ACTIVE_SESSIONS = 5;
+  private readonly maxActiveSessions: number;
 
   constructor(configService: ConfigService, @Inject(REDIS_CLIENT) redisClient: Redis) {
     this.keyPrefix = configService.get<string>('cache.keyPrefix') ?? 'cache:';
+    this.maxActiveSessions = configService.get<number>('auth.session.maxActive') ?? 5;
 
     // Create separate Redis instance for token store with different DB
     this.redisTokenStore = redisClient.duplicate();
@@ -55,11 +56,11 @@ export class RedisTokenStore implements ITokenStore, OnModuleDestroy {
 
     // Check and prune old sessions
     const sessionCount = await this.redisTokenStore.zcard(sessionsKey);
-    if (sessionCount > this.MAX_ACTIVE_SESSIONS) {
+    if (sessionCount > this.maxActiveSessions) {
       const toRemove = await this.redisTokenStore.zrange(
         sessionsKey,
         0,
-        sessionCount - this.MAX_ACTIVE_SESSIONS - 1,
+        sessionCount - this.maxActiveSessions - 1,
       );
       if (toRemove.length > 0) {
         this.logger.log(`Pruning ${toRemove.length} old sessions for user ${userId}`);

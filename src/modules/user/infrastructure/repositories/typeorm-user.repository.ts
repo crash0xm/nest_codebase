@@ -19,6 +19,7 @@ import {
   UserNotFoundException,
 } from '@/common/domain/errors/application.error';
 import { QueryFailedError, EntityNotFoundError, FindOptionsWhere } from 'typeorm';
+import { splitFullName } from '@/common/utils/name.util';
 
 @Injectable()
 export class TypeOrmUserRepository
@@ -45,10 +46,7 @@ export class TypeOrmUserRepository
   }
 
   private mapToDomain(user: UserOrmEntity): UserEntity {
-    const fullName = user.fullName ?? '';
-    const nameParts = fullName.split(' ');
-    const firstName = nameParts[0] ?? '';
-    const lastName = nameParts.slice(1).join(' ') ?? '';
+    const { firstName, lastName } = splitFullName(user.fullName ?? '');
 
     return UserEntity.reconstitute({
       id: user.id,
@@ -123,15 +121,15 @@ export class TypeOrmUserRepository
     return this.mapToDomain(updated as unknown as UserOrmEntity);
   }
 
-  async delete(id: string): Promise<void> {
+  async deactivate(id: string): Promise<void> {
     await super.update(id, { isActive: false } as Partial<UserOrmEntity>);
   }
 
   async updatePassword(id: string, passwordHash: string): Promise<void> {
     const repo = this.getRepository();
     await repo.update(
-      id as unknown as FindOptionsWhere<UserOrmEntity>,
-      { password_hash: passwordHash } as Partial<UserOrmEntity>,
+      { id } as FindOptionsWhere<UserOrmEntity>,
+      { passwordHash } as Partial<UserOrmEntity>,
     );
   }
 

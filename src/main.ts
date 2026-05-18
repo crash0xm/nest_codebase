@@ -1,10 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, VersioningType, ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './modules/app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLoggerService } from 'nestjs-pino';
 
@@ -90,7 +89,6 @@ async function bootstrap(): Promise<void> {
   });
 
   app.setGlobalPrefix(apiPrefix);
-  app.enableVersioning({ type: VersioningType.URI });
 
   // ── Global Pipes ────────────────────────────────────────────────────────────
   app.useGlobalPipes(
@@ -103,15 +101,6 @@ async function bootstrap(): Promise<void> {
       },
     }),
   );
-
-  // ── Rate Limiting ───────────────────────────────────────────────────────────
-  await app.register(import('@fastify/rate-limit'), {
-    max: 100,
-    timeWindow: '1 minute',
-  });
-
-  // ── Global Filters ─────────────────────────────────────────────────────────
-  app.useGlobalFilters(new GlobalExceptionFilter(configService));
 
   // ── Global Interceptors ─────────────────────────────────────────────────────
   app.useGlobalInterceptors(new ResponseInterceptor());

@@ -3,7 +3,7 @@ import {
   ConflictError,
   NotFoundError,
 } from '@/common/domain/errors/application.error';
-import { DatabaseError } from '@/common/errors/infrastructure.error';
+import { DatabaseError } from '@/common/domain/errors/infrastructure.error';
 import { QueryFailedError, EntityNotFoundError } from 'typeorm';
 
 export class TypeOrmErrorMapper {

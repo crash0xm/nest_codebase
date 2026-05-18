@@ -8,6 +8,7 @@ import { NOTIFICATION_QUEUE, NOTIFICATION_JOBS } from '../notification.constants
 import type {
   SendWelcomeEmailJob,
   SendAccountUpdateEmailJob,
+  SendPasswordResetEmailJob,
 } from '../jobs/send-welcome-email.job';
 
 @Processor(NOTIFICATION_QUEUE)
@@ -53,7 +54,8 @@ export class EmailProcessor extends WorkerHost {
         break;
       }
       case NOTIFICATION_JOBS.SEND_PASSWORD_RESET_EMAIL: {
-        this.logger.warn(`[Worker] ${job.name} handler not yet implemented — job id=${job.id}`);
+        const data = job.data as SendPasswordResetEmailJob;
+        await this.emailService.sendPasswordReset(data.email, data.resetToken);
         break;
       }
       default:

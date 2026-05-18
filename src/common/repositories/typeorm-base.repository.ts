@@ -18,7 +18,7 @@ import {
 } from 'typeorm';
 import { TypeOrmService } from '@/modules/typeorm/typeorm.service';
 import { AppLoggerService, LogContext } from '@/common/services/logger.service';
-import { DatabaseError } from '@/common/errors/infrastructure.error';
+import { DatabaseError } from '@/common/domain/errors/infrastructure.error';
 import { TypeOrmErrorMapper } from '@/modules/typeorm/typeorm-error.mapper';
 import { BaseRepository } from './base.repository';
 import { FindOptions, QueryFilter, QuerySort, QueryRelation } from '@/common/types/query.types';

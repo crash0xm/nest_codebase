@@ -1,26 +1,30 @@
-import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { Injectable, Inject } from '@nestjs/common';
+import { IProductRepository } from '@/modules/product/domain/repositories/product.repository.interface';
+import { INJECTION_TOKENS } from '@/constants/injection-tokens';
+
+type OwnershipHandler = (resourceId: string, userId: string) => boolean | Promise<boolean>;
 
 @Injectable()
 export class ResourceOwnershipService {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly handlers = new Map<string, OwnershipHandler>();
 
-  async isOwner(userId: string, resource: string, resourceId: string): Promise<boolean> {
-    switch (resource) {
-      case 'user':
-        return userId === resourceId;
-      case 'product':
-        return this.isProductOwner(resourceId, userId);
-      default:
-        return false;
-    }
+  constructor(
+    @Inject(INJECTION_TOKENS.PRODUCT_REPOSITORY)
+    private readonly productRepo: IProductRepository,
+  ) {
+    this.handlers.set('user', (resourceId, userId) => resourceId === userId);
+    this.handlers.set('product', (productId, userId) =>
+      this.productRepo.isOwnedBy(productId, userId),
+    );
   }
 
-  private async isProductOwner(productId: string, userId: string): Promise<boolean> {
-    const result = await this.dataSource.manager.query<{ rowCount: number }>(
-      'SELECT id FROM products WHERE id = $1 AND user_id = $2 LIMIT 1',
-      [productId, userId],
-    );
-    return (result?.rowCount ?? 0) > 0;
+  async isOwner(userId: string, resource: string, resourceId: string): Promise<boolean> {
+    const handler = this.handlers.get(resource);
+    if (!handler) return false;
+    return handler(resourceId, userId);
+  }
+
+  registerHandler(resource: string, handler: OwnershipHandler): void {
+    this.handlers.set(resource, handler);
   }
 }

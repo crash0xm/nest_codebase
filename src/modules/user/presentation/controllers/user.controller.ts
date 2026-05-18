@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   Query,
   HttpStatus,
@@ -27,14 +29,13 @@ import { Role } from '@/modules/user/domain/enums/role.enum';
 import { CreateUserUseCase } from '../../application/use-cases/create-user.use-case';
 import { GetUserByIdUseCase } from '../../application/use-cases/get-user-by-id.use-case';
 import { GetUsersUseCase } from '../../application/use-cases/get-users.use-case';
+import { UpdateUserUseCase } from '../../application/use-cases/update-user.use-case';
+import { DeleteUserUseCase } from '../../application/use-cases/delete-user.use-case';
+import { UpdateUserDto } from '../../domain/repositories/user.repository.interface';
 import { BaseResponse } from '@/common/interfaces/base-response.interface';
 import { Roles } from '@/common/guards/authorization.guard';
 import { UserMapper } from '../mappers/user.mapper';
-
-interface PaginationParams {
-  page?: number;
-  limit?: number;
-}
+import { PaginationParams } from '@/common/dtos/pagination.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -44,6 +45,8 @@ export class UserController {
     private readonly createUserUseCase: CreateUserUseCase,
     private readonly getUserByIdUseCase: GetUserByIdUseCase,
     private readonly getUsersUseCase: GetUsersUseCase,
+    private readonly updateUserUseCase: UpdateUserUseCase,
+    private readonly deleteUserUseCase: DeleteUserUseCase,
   ) {}
 
   @Post()
@@ -243,5 +246,39 @@ export class UserController {
       data: UserMapper.toResponse(user),
       message: 'User retrieved successfully',
     };
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update user by ID' })
+  @ApiParam({ name: 'id', description: 'User unique identifier', type: 'string' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User updated successfully',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
+  async updateUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<BaseResponse<UserResponseDto>> {
+    const user = await this.updateUserUseCase.execute(id, updateUserDto);
+    return {
+      success: true,
+      data: UserMapper.toResponse(user),
+      message: 'User updated successfully',
+    };
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete user by ID' })
+  @ApiParam({ name: 'id', description: 'User unique identifier', type: 'string' })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'User deleted successfully' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
+  async deleteUser(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.deleteUserUseCase.execute(id);
   }
 }

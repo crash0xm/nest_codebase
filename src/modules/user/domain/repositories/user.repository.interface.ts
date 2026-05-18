@@ -22,7 +22,7 @@ export interface IUserRepository {
   create(data: CreateUserDto): Promise<UserEntity>;
   update(id: string, data: UpdateUserDto): Promise<UserEntity>;
   updatePassword(id: string, passwordHash: string): Promise<void>;
-  delete(id: string): Promise<void>;
+  deactivate(id: string): Promise<void>;
   existsByEmail(email: string): Promise<boolean>;
 }
 

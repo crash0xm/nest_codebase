@@ -11,6 +11,7 @@ import { TypeOrmService } from '@/modules/typeorm/typeorm.service';
 import { TypeOrmBaseRepository } from '@/common/repositories/typeorm-base.repository';
 import { AppLoggerService } from '@/common/services/logger.service';
 import { ProductOrmEntity } from '@/modules/product/infrastructure/orm/product-orm.entity';
+import { FindOptionsWhere } from 'typeorm';
 
 @Injectable()
 export class TypeOrmProductRepository
@@ -83,5 +84,13 @@ export class TypeOrmProductRepository
 
   async existsByName(name: string): Promise<boolean> {
     return super.exists({ filters: [{ field: 'name', operator: 'eq', value: name }] });
+  }
+
+  async isOwnedBy(productId: string, userId: string): Promise<boolean> {
+    const repo = this.typeOrmService.getRepository(ProductOrmEntity);
+    const count = await repo.count({
+      where: { id: productId, userId } as FindOptionsWhere<ProductOrmEntity>,
+    });
+    return count > 0;
   }
 }

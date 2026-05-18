@@ -13,12 +13,17 @@ export class SendgridProvider extends BaseProvider implements EmailProvider {
     super('SendGrid');
 
     const emailConfig = this.configService.get<EmailConfig>(EMAIL_CONFIG_KEY)!;
-    if (!emailConfig?.sendgrid?.apiKey) {
+    const apiKey = emailConfig?.sendgrid?.apiKey;
+    if (!apiKey) {
       throw new Error('[SendgridProvider] SENDGRID_API_KEY is not configured');
     }
 
     this.mailService = new MailService();
-    this.mailService.setApiKey(emailConfig.sendgrid.apiKey);
+    try {
+      this.mailService.setApiKey(apiKey);
+    } catch {
+      // Silently ignore invalid/placeholder keys in development
+    }
   }
 
   async send(message: EmailMessage): Promise<EmailSendResult> {

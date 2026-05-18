@@ -1,10 +1,11 @@
-import { Inject, Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IUserRepository } from '../../domain/repositories/user.repository.interface';
 import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { CacheKeys } from '@/constants/cache.constant';
+import { UserNotFoundException } from '@/common/domain/errors/application.error';
 import type { ITokenStore } from '@/modules/auth/infrastructure/token-store/redis-token-store';
 
 @Injectable()
@@ -24,11 +25,11 @@ export class DeleteUserUseCase {
   async execute(id: string): Promise<void> {
     const user = await this.userRepo.findById(id);
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new UserNotFoundException(id);
     }
 
     // Soft delete
-    await this.userRepo.delete(id);
+    await this.userRepo.deactivate(id);
 
     // Add: Revoke all sessions of user in Redis
     try {

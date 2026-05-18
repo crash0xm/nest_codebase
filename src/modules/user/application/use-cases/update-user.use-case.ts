@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -8,6 +8,7 @@ import {
 } from '../../domain/repositories/user.repository.interface';
 import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { CacheKeys } from '@/constants/cache.constant';
+import { UserNotFoundException } from '@/common/domain/errors/application.error';
 import { UserEntity } from '../../domain/entities/user.entity';
 
 @Injectable()
@@ -24,7 +25,7 @@ export class UpdateUserUseCase {
   async execute(id: string, data: UpdateUserDto): Promise<UserEntity> {
     const oldUser = await this.userRepo.findById(id);
     if (!oldUser) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new UserNotFoundException(id);
     }
 
     const updated = await this.userRepo.update(id, data);

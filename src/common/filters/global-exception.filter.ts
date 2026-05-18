@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationError } from 'class-validator';
 import { ApplicationError } from '@/common/domain/errors/application.error';
 import { DomainError } from '@/common/domain/errors/domain.error';
-import { InfrastructureError } from '@/common/errors/infrastructure.error';
+import { InfrastructureError } from '@/common/domain/errors/infrastructure.error';
 
 type ErrorLocation = { function?: string; file?: string; line?: number; column?: number };
 

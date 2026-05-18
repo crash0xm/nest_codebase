@@ -34,6 +34,7 @@ import { MetricsModule } from '@modules/metrics/metrics.module';
 import { NotificationModule } from '@modules/notification/notification.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { UserModule } from '@modules/user/user.module';
+import { ProductModule } from '@modules/product/product.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { UserModule } from '@modules/user/user.module';
               'body.secret',
               'body.token',
               'body.key',
+              'body.refreshToken',
               ...redactPaths,
             ],
             serializers: {
@@ -158,6 +160,7 @@ import { UserModule } from '@modules/user/user.module';
     // ── Feature Modules ───────────────────────────────────────────────────────
     AuthModule,
     UserModule,
+    ProductModule,
     NotificationModule,
   ],
   providers: [
