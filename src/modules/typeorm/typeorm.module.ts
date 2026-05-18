@@ -8,19 +8,22 @@ import { TypeOrmService } from './typeorm.service';
   imports: [
     NestTypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        ({
-          type: config.get<string>('database.type', 'postgres'),
+      useFactory: (config: ConfigService) => {
+        const nodeEnv = config.get<string>('app.nodeEnv');
+
+        return {
+          type: 'postgres',
           url: config.get<string>('database.url'),
           autoLoadEntities: true,
-          synchronize: config.get<string>('NODE_ENV') === 'development',
-          logging: config.get<string>('NODE_ENV') === 'development' ? ['error', 'warn'] : ['error'],
-          ssl: config.get<boolean>('database.ssl') ?? false,
+          synchronize: nodeEnv === 'development',
+          logging: nodeEnv === 'development' ? ['error', 'warn'] : ['error'],
+          ssl: false,
           extra: {
-            connectionTimeoutMillis: config.get<number>('database.connectionTimeout') ?? 5000,
+            connectionTimeoutMillis: config.get<number>('database.acquireTimeout') ?? 5000,
             idleTimeoutMillis: config.get<number>('database.idleTimeout') ?? 600000,
           },
-        }) as unknown as TypeOrmModuleOptions,
+        } as TypeOrmModuleOptions;
+      },
     }),
   ],
   providers: [TypeOrmService],

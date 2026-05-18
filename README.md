@@ -1,147 +1,267 @@
-# NestJS Base - Professional Enterprise Boilerplate 🚀
+# NestJS Base — Enterprise Boilerplate
 
-![NestJS](https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
-![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white)
-![Fastify](https://img.shields.io/badge/fastify-%23000000.svg?style=for-the-badge&logo=fastify&logoColor=white)
-![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
+NestJS Base là boilerplate chuyên nghiệp cho ứng dụng backend enterprise, được xây dựng với tư duy **Domain-Driven Design** (DDD) và **Clean Architecture**. Dự án ưu tiên khả năng mở rộng, bảo trì và hiệu suất cao.
 
-A robust, enterprise-grade NestJS boilerplate designed for scalability, maintainability, and high-performance, featuring a strict development workflow and state-of-the-art backend technologies.
+---
+
+## 🏗 Kiến trúc tổng quan
+
+Ứng dụng được tổ chức theo mô hình **Modular Monolith** với các tầng phân tách rõ ràng:
+
+```
+src/
+├── main.ts                     # Entry point (Fastify adapter)
+├── common/
+│   ├── domain/                 # Base class: BaseEntity, BaseEvent, BaseValueObject + Domain Errors
+│   ├── decorators/             # @Public(), @Roles(), @CurrentUser(), @Throttle()...
+│   ├── filters/                # GlobalExceptionFilter (xử lý mọi exception tập trung)
+│   ├── guards/                 # AuthGuard, AuthorizationGuard, CustomThrottlerGuard...
+│   ├── interceptors/           # Logging, Response, AuditLog
+│   ├── interfaces/             # BaseResponse<T>
+│   ├── repositories/           # TypeOrmBaseRepository (abstract generic)
+│   ├── services/               # Logger, Cache, Transaction, PasswordHasher, ResourceOwnership...
+│   ├── types/                  # Pagination types, Query types
+│   └── utils/                  # Test helpers, pagination utility, env transform...
+├── config/                     # Config namespaces (app, database, redis, auth, cache, security, throttler)
+├── constants/                  # Hằng số + injection tokens
+├── i18n/                       # Đa ngôn ngữ (EN, ES)
+└── modules/                    # Feature modules
+    ├── auth/                   # Xác thực & phân quyền
+    ├── user/                   # Quản lý người dùng
+    ├── product/                # Quản lý sản phẩm (ví dụ CRUD)
+    ├── notification/           # Hàng đợi email async (BullMQ)
+    ├── health/                 # Health checks (Terminus)
+    ├── metrics/                # Prometheus metrics
+    ├── redis/                  # Redis client (ioredis)
+    └── typeorm/                # TypeORM module + error mapper
+```
+
+### Mỗi feature module tuân theo Clean Architecture:
+
+```
+modules/<feature>/
+├── domain/
+│   ├── entities/               # Rich domain model
+│   ├── repositories/           # Interface repository
+│   ├── value-objects/          # Value object (VD: Email)
+│   ├── events/                 # Domain events
+│   └── enums/                  # Enum
+├── application/
+│   └── use-cases/              # Use case / Service
+├── infrastructure/
+│   ├── orm/                    # TypeORM entity (extends BaseEntity)
+│   └── repositories/           # Implement repository interface
+└── presentation/
+    ├── controllers/            # Route handlers
+    └── dtos/                   # Request/Response DTO
+```
 
 ---
 
 ## 🛠 Technology Stack
 
-- **Core Framework**: [NestJS](https://nestjs.com/) (v11+) with **Fastify** for maximum performance.
-- **Language**: [TypeScript](https://www.typescriptlang.org/) (Strict Mode).
-- **Database Engine**: [Prisma ORM](https://www.prisma.io/) with PostgreSQL support.
-- **Caching & Messaging**: [Redis](https://redis.io/) (ioredis) & [BullMQ](https://docs.bullmq.io/) for high-throughput background jobs.
-- **Authentication**: [Passport.js](https://www.passportjs.org/) (JWT & Local Strategy) with Redis-backed session/token management.
-- **Observability**: [Prometheus](https://prometheus.io/) metrics, Pino logging, and integrated Health Checks.
-- **Integrations**: AWS S3 (Storage), Amazon SES / SendGrid (Email).
-- **DevOps**: Docker, Husky, Commitlint, ESLint (Airbnb Style Guide), and Prettier.
+| Layer          | Công nghệ                                                              |
+| -------------- | ---------------------------------------------------------------------- |
+| **Runtime**    | Node.js 22+, TypeScript 5.7 (strict mode)                              |
+| **Framework**  | NestJS 11 (Fastify adapter)                                            |
+| **Database**   | PostgreSQL 16 + TypeORM                                                |
+| **Caching**    | Redis 7 (ioredis + cache-manager)                                      |
+| **Queue**      | BullMQ (background jobs)                                               |
+| **Auth**       | Passport (JWT + Local strategy), Argon2 (hash), refresh token rotation |
+| **Validation** | class-validator + class-transformer                                    |
+| **API Docs**   | Swagger / OpenAPI 3.0                                                  |
+| **Logging**    | Pino (structured JSON)                                                 |
+| **Metrics**    | Prometheus client                                                      |
+| **i18n**       | nestjs-i18n (EN, ES)                                                   |
+| **CLS**        | nestjs-cls (requestId, traceId)                                        |
+| **Email**      | SendGrid / AWS SES (template)                                          |
+| **Storage**    | AWS S3 / Cloudinary                                                    |
+| **Testing**    | Jest + supertest                                                       |
+| **CI/CD**      | GitHub Actions + Docker                                                |
 
 ---
 
-## 📂 Project Structure
+## 🚀 Bắt đầu nhanh
 
-```text
-src/
-├── common/           # Shared modules, decorators, filters, and utilities
-├── config/           # Centralized configuration management (app, database, redis, etc.)
-├── constants/        # Application-wide constants and injection tokens
-├── i18n/             # Multi-language (i18n) support files
-└── modules/          # Domain-specific business logic
-    ├── auth/         # Authentication & Authorization domain
-    ├── user/         # User management domain
-    ├── product/      # Product domain example
-    ├── notification/ # Background jobs and email processing
-    └── ...           # Other business modules
-```
+### 1. Yêu cầu
 
----
+- Node.js 22+
+- pnpm 10+
+- Docker (cho PostgreSQL, Redis)
 
-## 🚀 Getting Started
-
-### 1. Prerequisites
-
-- **Node.js**: v22+
-- **pnpm**: v10+ (Recommended)
-- **Docker**: For running Postgres & Redis
-
-### 2. Environment Setup
-
-Copy the example environment file and fill in your credentials:
+### 2. Cài đặt môi trường
 
 ```bash
 cp .env.example .env
+# Hoặc cho Docker:
+cp .env.docker.example .env.docker
 ```
 
-### 3. Installation
+### 3. Cài dependencies
 
 ```bash
 pnpm install
 ```
 
-### 4. Database Migration
+### 4. Khởi động infrastructure (PostgreSQL + Redis)
 
 ```bash
-pnpm prisma generate
-pnpm prisma migrate dev
+docker compose up -d
 ```
 
-### 5. Running the App
+### 5. Chạy ứng dụng
 
 ```bash
-# Development mode
+# Development
 pnpm run start:dev
 
-# Production mode
-pnpm run build
-pnpm run start:prod
+# Debug
+pnpm run start:debug
+
+# Production build
+pnpm run build && pnpm run start:prod
 ```
 
 ---
 
-## 🛡 Development Workflow & Standards
+## 📋 Scripts
 
-We enforce strict coding standards to ensure code quality and consistency across the team.
+| Script               | Mô tả                           |
+| -------------------- | ------------------------------- |
+| `pnpm build`         | Build ứng dụng                  |
+| `pnpm start:dev`     | Chạy dev với hot-reload         |
+| `pnpm start:prod`    | Chạy production                 |
+| `pnpm lint`          | ESLint auto-fix                 |
+| `pnpm lint:check`    | ESLint kiểm tra (không fix)     |
+| `pnpm lint:strict`   | ESLint strict mode              |
+| `pnpm typecheck`     | TypeScript kiểm tra kiểu        |
+| `pnpm format`        | Prettier format                 |
+| `pnpm format:check`  | Prettier kiểm tra               |
+| `pnpm validate:code` | lint + typecheck + format:check |
+| `pnpm test`          | Chạy unit test                  |
+| `pnpm test:cov`      | Chạy unit test + coverage       |
+| `pnpm test:e2e`      | Chạy E2E test                   |
 
-### 📝 Commit Message Convention
+---
 
-This project follows [Conventional Commits](https://www.conventionalcommits.org/). Every commit message is validated against these rules:
+## 🔐 Xác thực & Phân quyền
 
-- `feat: ...` (New feature)
-- `fix: ...` (Bug fix)
-- `docs: ...` (Documentation changes)
-- `style: ...` (Formatting, missing semi-colons, etc)
-- `refactor: ...` (Code change that neither fixes a bug nor adds a feature)
-- `test: ...` (Adding or fixing tests)
-- `build: ...` (Changes to the build system or external dependencies)
+### Luồng xác thực
 
-### ⚓ Git Hooks (Husky)
+1. **Đăng nhập**: `POST /api/v1/auth/login` → kiểm tra email/password → trả về access token + refresh token
+2. **Access token**: JWT (HS256, thời gian ngắn) gửi qua header `Authorization: Bearer <token>`
+3. **Refresh token**: JWT (thời gian dài), hash lưu trong Redis, luân chuyển mỗi lần refresh
+4. **Blacklist**: Access token bị vô hiệu hoá khi logout
+5. **Global guards** (theo thứ tự): `CustomThrottlerGuard` → `AuthGuard` → `AuthorizationGuard`
 
-The following checks are automated via **Husky** hooks:
+### Decorators
 
-1. **lint-staged**: Checks formatting (Prettier) and coding rules (ESLint) **only on files you changed**.
-2. **TypeScript Check**: Ensures there are no type errors globally.
-3. **Format Check**: Validates project-wide Prettier compliance.
-4. **Branch Naming**: Enforces branch names like `feature.xxx`, `bugfix.xxx`, etc. (allows `main`).
-5. **Pre-push**: Runs all **Unit Tests** before pushing to the remote repository.
+| Decorator         | Mục đích                                  |
+| ----------------- | ----------------------------------------- |
+| `@Public()`       | Bỏ qua xác thực JWT (VD: login, register) |
+| `@OptionalAuth()` | Cho phép cả có token và không token       |
+| `@Roles('admin')` | Yêu cầu role cụ thể                       |
+| `@Throttle(...)`  | Override rate limit cho endpoint          |
+| `@SkipThrottle()` | Bỏ qua rate limit                         |
+| `@CurrentUser()`  | Lấy thông tin user từ request             |
 
-### 🧩 Linting & Formatting
+---
 
-- All code must pass the **Airbnb ESLint Style Guide**.
-- Strict TypeScript rules are active (no `any`, explicit return types required).
-- Run `pnpm run lint` to fix common issues automatically.
-- Run `pnpm format` to beautify the entire codebase.
+## 📦 Endpoints API
+
+### Health
+
+| Method | Path                   | Mô tả             |
+| ------ | ---------------------- | ----------------- |
+| GET    | `/api/v1/health`       | Kiểm tra tổng thể |
+| GET    | `/api/v1/health/live`  | Liveness probe    |
+| GET    | `/api/v1/health/ready` | Readiness probe   |
+
+### Auth
+
+| Method | Path                           | Auth   |
+| ------ | ------------------------------ | ------ |
+| POST   | `/api/v1/auth/register`        | Public |
+| POST   | `/api/v1/auth/login`           | Public |
+| POST   | `/api/v1/auth/refresh`         | Public |
+| POST   | `/api/v1/auth/logout`          | JWT    |
+| POST   | `/api/v1/auth/logout-all`      | JWT    |
+| GET    | `/api/v1/auth/me`              | JWT    |
+| POST   | `/api/v1/auth/forgot-password` | Public |
+| POST   | `/api/v1/auth/reset-password`  | Public |
+| PATCH  | `/api/v1/auth/change-password` | JWT    |
+
+### Users
+
+| Method | Path                | Auth  |
+| ------ | ------------------- | ----- |
+| POST   | `/api/v1/users`     | Admin |
+| GET    | `/api/v1/users`     | JWT   |
+| GET    | `/api/v1/users/:id` | JWT   |
+
+### Products
+
+| Method | Path                   | Auth  |
+| ------ | ---------------------- | ----- |
+| POST   | `/api/v1/products`     | Admin |
+| GET    | `/api/v1/products/:id` | JWT   |
+| GET    | `/api/v1/products`     | JWT   |
+
+### Metrics
+
+| Method | Path              |
+| ------ | ----------------- |
+| GET    | `/api/v1/metrics` |
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-# Run all unit tests
+# Unit test
 pnpm run test
 
-# Run e2e tests
+# Unit test + coverage (ngưỡng 70%)
+pnpm run test:cov
+
+# E2E test
 pnpm run test:e2e
 
-# Code coverage report
-pnpm run test:cov
+# Debug test
+pnpm run test:debug
 ```
 
 ---
 
-## 🐳 Deployment (Docker)
+## 🐳 Docker
 
 ```bash
-# Build and run with Docker Compose
-docker-compose up --build
+# Development (PostgreSQL + Redis)
+docker compose up -d
+
+# Production (full stack)
+docker compose -f docker-compose.prod.yml up --build -d
 ```
 
 ---
 
-## 📜 License
+## 📐 Coding Standards
 
-This project is [UNLICENSED](LICENSE).
+- **Commit convention**: [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `build:`...)
+- **Pre-commit hook** (Husky): lint-staged → typecheck → format:check → branch naming
+- **Commit-msg hook**: commitlint
+- **Pre-push hook**: unit test + coverage, chặn commit `.env`
+- **ESLint**: Airbnb style guide, strict TypeScript rules, cấm `any`
+- **Branch naming**: `feature.xxx`, `bugfix.xxx`, `main`
+
+---
+
+## 🌐 Đa ngôn ngữ (i18n)
+
+Hỗ trợ tiếng Anh (`en`) và tiếng Tây Ban Nha (`es`). File dịch nằm trong `src/i18n/translations/`. Sử dụng `I18nService` từ `nestjs-i18n` để lấy nội dung theo ngôn ngữ.
+
+---
+
+## 📜 Giấy phép
+
+UNLICENSED

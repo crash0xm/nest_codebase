@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '@/modules/prisma/prisma.service';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { AppLoggerService } from '@/common/services/logger.service';
 import { ApplicationError } from '@/common/domain/errors/application.error';
 
@@ -18,24 +19,27 @@ export interface TransactionContext {
   }>;
 }
 
+export type TransactionCallback<T> = (manager: EntityManager) => Promise<T>;
+
 @Injectable()
 export class TransactionService {
   private activeTransactions = new Map<string, TransactionContext>();
 
   constructor(
-    private readonly prisma: PrismaService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     private readonly logger: AppLoggerService,
   ) {}
 
   async runInTransaction<T>(
-    operations: (tx: import('@prisma/client').Prisma.TransactionClient) => Promise<T>,
+    operations: TransactionCallback<T>,
     options?: TransactionOptions,
   ): Promise<T> {
     return this.executeTransactionWithLogging<T>(operations, options);
   }
 
   private async executeTransactionWithLogging<T>(
-    operations: (tx: import('@prisma/client').Prisma.TransactionClient) => Promise<T>,
+    operations: TransactionCallback<T>,
     options?: TransactionOptions,
   ): Promise<T> {
     const transactionId = this.generateTransactionId();
@@ -88,7 +92,7 @@ export class TransactionService {
   }
 
   private async executeTransactionInternal<T>(
-    operations: (tx: import('@prisma/client').Prisma.TransactionClient) => Promise<T>,
+    operations: TransactionCallback<T>,
     transactionId: string,
     options?: TransactionOptions,
   ): Promise<T> {
@@ -104,26 +108,23 @@ export class TransactionService {
       );
     }
 
-    const transactionWrapper = async (
-      tx: import('@prisma/client').Prisma.TransactionClient,
-    ): Promise<T> => {
+    const transactionWrapper = async (manager: EntityManager): Promise<T> => {
       context.operations.push({
         operation: 'transaction',
         timestamp: Date.now(),
       });
 
-      return operations(tx);
+      return operations(manager);
     };
 
-    // Execute transaction with options
     if (options?.timeout) {
       return Promise.race([
-        this.prisma.$transaction(transactionWrapper),
+        this.dataSource.transaction(transactionWrapper),
         this.createTimeoutPromise(options.timeout, transactionId),
       ]);
     }
 
-    return this.prisma.$transaction(transactionWrapper);
+    return this.dataSource.transaction(transactionWrapper);
   }
 
   private createTimeoutPromise(timeout: number, transactionId: string): Promise<never> {
@@ -141,7 +142,7 @@ export class TransactionService {
 
   async runMultipleTransactions<T>(
     transactions: Array<{
-      operations: (tx: import('@prisma/client').Prisma.TransactionClient) => Promise<T>;
+      operations: TransactionCallback<T>;
       options?: TransactionOptions;
     }>,
   ): Promise<T[]> {

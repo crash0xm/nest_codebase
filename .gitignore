@@ -10,8 +10,7 @@ src/generated/
 # Environment - NEVER COMMIT
 .env
 .env.*
-!.env.example
-!.env.*.example
+
 
 # Docker env - NEVER COMMIT
 .env.docker

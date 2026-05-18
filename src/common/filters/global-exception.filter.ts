@@ -27,15 +27,6 @@ interface StandardErrorResponse {
   };
 }
 
-/**
- * 🔍 Global Exception Filter
- *
- * Centralized error handling with:
- * - Structured error responses
- * - Request ID correlation
- * - Production safety (no stack traces in prod)
- * - Security error redaction
- */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);

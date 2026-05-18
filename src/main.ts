@@ -89,6 +89,7 @@ async function bootstrap(): Promise<void> {
     maxAge: corsMaxAge,
   });
 
+  app.setGlobalPrefix(apiPrefix);
   app.enableVersioning({ type: VersioningType.URI });
 
   // ── Global Pipes ────────────────────────────────────────────────────────────

@@ -13,8 +13,8 @@ import redisConfig from '@config/redis/redis.config';
 import authConfig from '@config/auth/auth.config';
 import securityConfig from '@config/security/security.config';
 import throttlerConfig from '@config/throttler/throttler.config';
+import cacheConfig from '@config/cache/cache.config';
 import { AppClsModule } from '@modules/cls/cls.module';
-import { PrismaModule } from '@modules/prisma/prisma.module';
 import { TypeOrmModule } from '@modules/typeorm/typeorm.module';
 import { RedisModule } from '@modules/redis/redis.module';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
@@ -35,7 +35,15 @@ import { UserModule } from '@modules/user/user.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, redisConfig, authConfig, securityConfig, throttlerConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        redisConfig,
+        authConfig,
+        securityConfig,
+        throttlerConfig,
+        cacheConfig,
+      ],
       envFilePath: ['.env.local', '.env'],
       expandVariables: true,
     }),
@@ -117,14 +125,13 @@ import { UserModule } from '@modules/user/user.module';
             },
             password: config.get<string>('redis.password') ?? undefined,
           }),
-          ttl: 60000,
-          keyPrefix: 'cache:',
+          ttl: config.get<number>('cache.defaultTtl') ?? 60000,
+          keyPrefix: config.get<string>('cache.keyPrefix') ?? 'cache:',
         };
       },
     }),
 
     // ── Core Infrastructure ───────────────────────────────────────────────────
-    PrismaModule,
     TypeOrmModule,
     RedisModule,
 

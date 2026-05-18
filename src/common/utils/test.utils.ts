@@ -1,14 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
-import { PrismaService } from '@/modules/prisma/prisma.service';
+import { DataSource, EntityManager } from 'typeorm';
 import { AppLoggerService } from '@/common/services/logger.service';
-import { Prisma, PrismaClient } from '@prisma/client';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RawRecord = Record<string, any>;
 
 export interface TestDatabase {
   reset: () => Promise<void>;
   close: () => Promise<void>;
   clear: (table?: string) => Promise<void>;
-  seed: (data?: { users?: any[]; products?: any[] }) => Promise<void>;
-  transaction: (callback: (tx: Prisma.TransactionClient) => Promise<void>) => Promise<void>;
+  seed: (data?: { users?: RawRecord[]; products?: RawRecord[] }) => Promise<void>;
+  transaction: (callback: (manager: EntityManager) => Promise<void>) => Promise<void>;
 }
 
 export class TestBuilder<T> {
@@ -37,39 +38,31 @@ export class TestBuilder<T> {
 
 export class DatabaseTestHelper implements TestDatabase {
   constructor(
-    private readonly prisma: PrismaClient,
+    private readonly dataSource: DataSource,
     private readonly logger: AppLoggerService,
   ) {}
 
   async reset(): Promise<void> {
     this.logger.trace('Resetting test database');
 
-    // Delete all data in correct order to respect foreign keys
-    await (this.prisma as any).product.deleteMany();
-    await this.prisma.user.deleteMany();
+    const entities = this.dataSource.entityMetadatas;
+    const tableNames = entities.map((e) => `"${e.tableName}"`).join(', ');
+    await this.dataSource.query(`TRUNCATE TABLE ${tableNames} CASCADE`);
 
     this.logger.trace('Test database reset completed');
   }
 
   async close(): Promise<void> {
-    await this.prisma.$disconnect();
+    if (this.dataSource.isInitialized) {
+      await this.dataSource.destroy();
+    }
     this.logger.trace('Test database connection closed');
   }
 
   async clear(table?: string): Promise<void> {
     if (table) {
       this.logger.trace(`Clearing table: ${table}`);
-
-      switch (table.toLowerCase()) {
-        case 'users':
-          await this.prisma.user.deleteMany();
-          break;
-        case 'products':
-          await (this.prisma as any).product.deleteMany();
-          break;
-        default:
-          this.logger.warn(`Unknown table for clearing: ${table}`);
-      }
+      await this.dataSource.query(`DELETE FROM "${table}"`);
     } else {
       await this.reset();
     }
@@ -78,58 +71,35 @@ export class DatabaseTestHelper implements TestDatabase {
   async seed(data?: { users?: unknown[]; products?: unknown[] }): Promise<void> {
     this.logger.trace('Seeding test database');
 
-    if (data?.users) {
-      await this.prisma.user.createMany({
-        data: data.users as any,
-      });
+    const userRepo = this.dataSource.getRepository('users');
+    const productRepo = this.dataSource.getRepository('products');
+
+    if (data?.users?.length) {
+      await userRepo.save(data.users);
     }
 
-    if (data?.products) {
-      await (this.prisma as any).product.createMany({
-        data: data.products as any,
-      });
+    if (data?.products?.length) {
+      await productRepo.save(data.products);
     }
 
     this.logger.trace('Test database seeding completed');
   }
 
-  async transaction(callback: (tx: Prisma.TransactionClient) => Promise<void>): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await callback(tx);
+  async transaction(callback: (manager: EntityManager) => Promise<void>): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      await callback(manager);
     });
   }
 
   async createTestData<T>(entity: string, data: Partial<T>[]): Promise<T[]> {
-    const model = this.getModel(entity);
-    if (!model) {
-      throw new Error(`Unknown entity: ${entity}`);
-    }
-
-    const result = await model.createMany({
-      data,
-    });
-
+    const repo = this.dataSource.getRepository(entity);
+    const result = await repo.save(data);
     return result as T[];
   }
 
   async countEntities(entity: string): Promise<number> {
-    const model = this.getModel(entity);
-    if (!model) {
-      throw new Error(`Unknown entity: ${entity}`);
-    }
-
-    return await model.count();
-  }
-
-  private getModel(entity: string): any {
-    switch (entity.toLowerCase()) {
-      case 'user':
-        return this.prisma.user;
-      case 'product':
-        return (this.prisma as any).product;
-      default:
-        return null;
-    }
+    const repo = this.dataSource.getRepository(entity);
+    return repo.count();
   }
 
   // Assertions for testing
@@ -234,10 +204,10 @@ export class TestTimer {
 // Global test setup utilities
 export class TestSetup {
   static async setupTestDatabase(
-    prisma: PrismaService,
+    dataSource: DataSource,
     logger: AppLoggerService,
   ): Promise<TestDatabase> {
-    const helper = new DatabaseTestHelper(prisma, logger);
+    const helper = new DatabaseTestHelper(dataSource, logger);
     await helper.reset();
     return helper;
   }

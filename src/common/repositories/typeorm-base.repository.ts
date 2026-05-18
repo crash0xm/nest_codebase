@@ -26,8 +26,9 @@ import { PaginatedResult, buildPaginationMeta } from '@/common/types/pagination.
 
 export abstract class TypeOrmBaseRepository<
   T extends ObjectLiteral,
+  TEntity = T,
   TId = string,
-> extends BaseRepository<T, T, TId> {
+> extends BaseRepository<T, TEntity, TId> {
   constructor(
     protected readonly typeOrmService: TypeOrmService,
     protected readonly logger: AppLoggerService,
@@ -165,7 +166,7 @@ export abstract class TypeOrmBaseRepository<
     }
   }
 
-  private handleExecuteError(
+  protected handleExecuteError(
     operation: string,
     error: unknown,
     metadata?: Record<string, unknown>,
@@ -186,7 +187,7 @@ export abstract class TypeOrmBaseRepository<
 
   // ── Standard CRUD ───────────────────────────────────────────────────
 
-  async findById(id: TId, options?: FindOptions): Promise<T | null> {
+  async findById(id: TId, options?: FindOptions): Promise<TEntity | null> {
     return this.executeWithLogging(
       'findById',
       async () => {
@@ -205,38 +206,38 @@ export abstract class TypeOrmBaseRepository<
           relations,
           select,
         });
-        return result ?? null;
+        return (result ?? null) as TEntity | null;
       },
       { id },
     );
   }
 
-  async findOne(options: FindOptions): Promise<T | null> {
+  async findOne(options: FindOptions): Promise<TEntity | null> {
     return this.executeWithLogging(
       'findOne',
       async () => {
         const repo = this.getRepository();
         const opts = this.toFindManyOptions(options);
         const result = await repo.findOne(opts);
-        return result ?? null;
+        return (result ?? null) as TEntity | null;
       },
       { options },
     );
   }
 
-  async findMany(options?: FindOptions): Promise<T[]> {
+  async findMany(options?: FindOptions): Promise<TEntity[]> {
     return this.executeWithLogging(
       'findMany',
       async () => {
         const repo = this.getRepository();
         const opts = this.toFindManyOptions(options);
-        return repo.find(opts);
+        return repo.find(opts) as unknown as Promise<TEntity[]>;
       },
       { options },
     );
   }
 
-  async findManyWithPagination(options?: FindOptions): Promise<PaginatedResult<T>> {
+  async findManyWithPagination(options?: FindOptions): Promise<PaginatedResult<TEntity>> {
     return this.executeWithLogging(
       'findManyWithPagination',
       async () => {
@@ -259,7 +260,7 @@ export abstract class TypeOrmBaseRepository<
         });
 
         return {
-          data,
+          data: data as unknown as TEntity[],
           total,
           ...buildPaginationMeta(total, page, limit),
         };
@@ -268,19 +269,19 @@ export abstract class TypeOrmBaseRepository<
     );
   }
 
-  async create(data: Partial<T>): Promise<T> {
+  async create(data: Partial<T>): Promise<TEntity> {
     return this.executeWithLogging(
       'create',
       async () => {
         const repo = this.getRepository();
         const entity = repo.create(data as DeepPartial<T>);
-        return repo.save(entity);
+        return repo.save(entity) as unknown as Promise<TEntity>;
       },
       { data },
     );
   }
 
-  async update(id: TId, data: Partial<T>): Promise<T> {
+  async update(id: TId, data: Partial<T>): Promise<TEntity> {
     return this.executeWithLogging(
       'update',
       async () => {
@@ -291,7 +292,7 @@ export abstract class TypeOrmBaseRepository<
         });
         if (!result)
           throw new DatabaseError(`Update failed: ${this.entityName} ${String(id)} not found`);
-        return result;
+        return result as unknown as TEntity;
       },
       { id, data },
     );

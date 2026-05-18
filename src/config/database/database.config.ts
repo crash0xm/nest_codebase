@@ -24,12 +24,42 @@ class EnvironmentVariablesValidator {
   @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
-  DATABASE_CONNECTION_TIMEOUT!: number;
+  DB_ACQUIRE_TIMEOUT_MS!: number;
 
   @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
-  DATABASE_IDLE_TIMEOUT!: number;
+  DB_IDLE_TIMEOUT_MS!: number;
+
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
+  @IsInt()
+  @IsOptional()
+  DB_POOL_MIN!: number;
+
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
+  @IsInt()
+  @IsOptional()
+  DB_POOL_MAX!: number;
+
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
+  @IsInt()
+  @IsOptional()
+  DB_RETRY_MAX!: number;
+
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
+  @IsInt()
+  @IsOptional()
+  DB_RETRY_DELAY_MS!: number;
+
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
+  @IsInt()
+  @IsOptional()
+  DB_RETRY_BACKOFF!: number;
+
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
+  @IsInt()
+  @IsOptional()
+  DB_SLOW_QUERY_MS!: number;
 }
 
 export default registerAs<DatabaseConfig>('database', () => {
@@ -38,7 +68,13 @@ export default registerAs<DatabaseConfig>('database', () => {
   return {
     url: validatedConfig.DATABASE_URL ?? '',
     ssl: validatedConfig.DATABASE_SSL,
-    connectionTimeout: validatedConfig.DATABASE_CONNECTION_TIMEOUT,
-    idleTimeout: validatedConfig.DATABASE_IDLE_TIMEOUT,
+    acquireTimeout: validatedConfig.DB_ACQUIRE_TIMEOUT_MS,
+    idleTimeout: validatedConfig.DB_IDLE_TIMEOUT_MS,
+    poolMin: validatedConfig.DB_POOL_MIN,
+    poolMax: validatedConfig.DB_POOL_MAX,
+    retryMax: validatedConfig.DB_RETRY_MAX,
+    retryDelay: validatedConfig.DB_RETRY_DELAY_MS,
+    retryBackoff: validatedConfig.DB_RETRY_BACKOFF,
+    slowQuery: validatedConfig.DB_SLOW_QUERY_MS,
   };
 });

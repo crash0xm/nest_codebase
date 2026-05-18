@@ -27,18 +27,16 @@ export class UserEntity extends BaseEntity {
   private _role: Role;
   private _isActive: boolean;
   readonly isEmailVerified: boolean;
-  protected _deletedAt: Date | null;
   private _passwordHash?: string | null;
 
   private constructor(props: UserProps) {
-    super(props.id, props.createdAt, props.updatedAt);
+    super(props.id, props.createdAt, props.updatedAt, props.deletedAt);
     this._email = Email.create(props.email);
     this._firstName = props.firstName;
     this._lastName = props.lastName;
     this._role = props.role;
     this._isActive = props.isActive;
     this.isEmailVerified = props.isEmailVerified;
-    this._deletedAt = props.deletedAt ?? null;
     this._passwordHash = props.passwordHash;
   }
 
@@ -64,17 +62,13 @@ export class UserEntity extends BaseEntity {
   get isActive(): boolean {
     return this._isActive;
   }
-  get deletedAt(): Date | null {
-    return this._deletedAt;
-  }
-
   get isDeleted(): boolean {
     return !!this.deletedAt;
   }
 
   deactivate(): void {
     if (!this._isActive) {
-      throw new UserAlreadyDeactivatedError(this._id);
+      throw new UserAlreadyDeactivatedError(this.id);
     }
     this._isActive = false;
     this.touch();

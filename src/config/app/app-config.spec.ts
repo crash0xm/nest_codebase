@@ -5,7 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 describe('AppConfig', () => {
   beforeEach(() => {
     // Clean up environment variables before each test
-    delete process.env.APP_PORT;
+    delete process.env.PORT;
     delete process.env.APP_NAME;
     delete process.env.NODE_ENV;
     delete process.env.API_VERSION;
@@ -14,7 +14,7 @@ describe('AppConfig', () => {
 
   it('should load default config values', async () => {
     // Set valid environment variables for test
-    process.env.APP_PORT = '3000';
+    process.env.PORT = '3000';
     process.env.APP_NAME = 'NestJS SaaS';
     process.env.NODE_ENV = 'development';
     process.env.API_VERSION = '1';
@@ -42,7 +42,7 @@ describe('AppConfig', () => {
   });
 
   it('should load custom config values from environment', async () => {
-    process.env.APP_PORT = '4000';
+    process.env.PORT = '4000';
     process.env.APP_NAME = 'Custom App';
     process.env.NODE_ENV = 'production';
 
@@ -53,7 +53,7 @@ describe('AppConfig', () => {
     expect(config.nodeEnv).toBe('production');
 
     // Cleanup
-    delete process.env.APP_PORT;
+    delete process.env.PORT;
     delete process.env.APP_NAME;
     delete process.env.NODE_ENV;
   });

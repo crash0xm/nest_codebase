@@ -90,14 +90,14 @@ export class ProductEntity extends BaseEntity {
 
   toSnapshot(): ProductSnapshot {
     return {
-      id: this._id,
+      id: this.id,
       name: this._name,
       description: this._description,
       price: this._price,
       stock: this._stock,
       isActive: this._isActive,
-      createdAt: this._createdAt,
-      updatedAt: this._updatedAt,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
     };
   }
 }

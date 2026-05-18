@@ -3,8 +3,8 @@ import { ThrottlerConfig, ThrottlerEndpointConfig } from './throttler-config.typ
 
 export default registerAs<ThrottlerConfig>('throttler', () => {
   const defaultLimit = {
-    ttl: parseInt(process.env.THROTTLE_TTL ?? '60', 10),
-    limit: parseInt(process.env.THROTTLE_LIMIT ?? '10', 10),
+    ttl: parseInt(process.env.THROTTLE_TTL_MS ?? '60000', 10),
+    limit: parseInt(process.env.THROTTLE_LIMIT ?? '100', 10),
   } as const;
 
   const authLimit = {

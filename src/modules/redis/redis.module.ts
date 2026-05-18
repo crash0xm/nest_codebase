@@ -11,12 +11,12 @@ export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
       provide: REDIS_CLIENT,
       useFactory: (config: ConfigService): Redis => {
         return new Redis({
-          host: config.get<string>('cache.redis.host') ?? 'localhost',
-          port: config.get<number>('cache.redis.port') ?? 6379,
-          password: config.get<string>('cache.redis.password') ?? undefined,
-          maxRetriesPerRequest: 3,
+          host: config.get<string>('redis.host') ?? 'localhost',
+          port: config.get<number>('redis.port') ?? 6379,
+          password: config.get<string>('redis.password') ?? undefined,
+          maxRetriesPerRequest: config.get<number>('redis.maxRetriesPerRequest') ?? 3,
           enableReadyCheck: true,
-          lazyConnect: false,
+          lazyConnect: config.get<boolean>('redis.lazyConnect') ?? false,
         });
       },
       inject: [ConfigService],

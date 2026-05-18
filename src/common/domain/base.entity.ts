@@ -1,37 +1,31 @@
 import { plainToInstance } from 'class-transformer';
+import { PrimaryGeneratedColumn, Column } from 'typeorm';
 
 export abstract class BaseEntity<TId = string> {
-  protected readonly _id: TId;
-  protected readonly _createdAt: Date;
-  protected _updatedAt: Date;
-  protected readonly _deletedAt: Date | null;
+  @PrimaryGeneratedColumn('uuid')
+  id!: TId;
 
-  protected constructor(id: TId, createdAt?: Date, updatedAt?: Date, deletedAt?: Date | null) {
-    this._id = id;
-    this._createdAt = createdAt ?? new Date();
-    this._updatedAt = updatedAt ?? new Date();
-    this._deletedAt = deletedAt ?? null;
-  }
+  @Column({ name: 'created_at', type: 'timestamptz', default: () => 'NOW()' })
+  createdAt!: Date;
 
-  get id(): TId {
-    return this._id;
-  }
+  @Column({ name: 'updated_at', type: 'timestamptz', default: () => 'NOW()', onUpdate: 'NOW()' })
+  updatedAt!: Date;
 
-  get createdAt(): Date {
-    return this._createdAt;
-  }
+  @Column({ name: 'deleted_at', nullable: true, type: 'timestamptz' })
+  deletedAt!: Date | null;
 
-  get updatedAt(): Date {
-    return this._updatedAt;
-  }
-
-  get deletedAt(): Date | null {
-    return this._deletedAt;
+  protected constructor(id?: TId, createdAt?: Date, updatedAt?: Date, deletedAt?: Date | null) {
+    if (id !== undefined) {
+      this.id = id;
+      this.createdAt = createdAt ?? new Date();
+      this.updatedAt = updatedAt ?? new Date();
+      this.deletedAt = deletedAt ?? null;
+    }
   }
 
   equals(other: BaseEntity<TId>): boolean {
     if (!(other instanceof BaseEntity)) return false;
-    return this._id === other._id;
+    return this.id === other.id;
   }
 
   toDto<Dto>(dtoClass: new () => Dto): Dto {
@@ -39,6 +33,6 @@ export abstract class BaseEntity<TId = string> {
   }
 
   protected touch(): void {
-    this._updatedAt = new Date();
+    this.updatedAt = new Date();
   }
 }

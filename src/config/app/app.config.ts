@@ -15,7 +15,7 @@ class EnvironmentVariablesValidator {
   @Min(0)
   @Max(65535)
   @IsOptional()
-  APP_PORT!: number;
+  PORT!: number;
 
   @IsString()
   @IsNotEmpty()
@@ -37,13 +37,25 @@ class EnvironmentVariablesValidator {
   @IsString()
   @IsOptional()
   FALLBACK_LANGUAGE!: string;
+
+  @IsString()
+  @IsOptional()
+  LOG_LEVEL!: string;
+
+  @IsString()
+  @IsOptional()
+  LOG_PROVIDER!: string;
+
+  @IsString()
+  @IsOptional()
+  CORRELATION_ID_HEADER!: string;
 }
 
 export default registerAs<AppConfig>('app', () => {
   const validatedConfig = validateConfig(process.env, EnvironmentVariablesValidator);
 
   const nodeEnv = validatedConfig.NODE_ENV ?? Environment.DEVELOPMENT;
-  const port = validatedConfig.APP_PORT ?? 3000;
+  const port = validatedConfig.PORT ?? 3000;
   const name = validatedConfig.APP_NAME ?? 'NestJS SaaS';
   const apiPrefix = validatedConfig.API_PREFIX ?? 'api/v1';
   const apiVersion = validatedConfig.API_VERSION ?? '1';

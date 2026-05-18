@@ -7,46 +7,25 @@ import {
   CreateProductDto,
   UpdateProductDto,
 } from '../../domain/repositories/product.repository.interface';
-import { PrismaService } from '@/modules/prisma/prisma.service';
-import { PrismaBaseRepository } from '@/common/repositories/prisma-base.repository';
+import { TypeOrmService } from '@/modules/typeorm/typeorm.service';
+import { TypeOrmBaseRepository } from '@/common/repositories/typeorm-base.repository';
 import { AppLoggerService } from '@/common/services/logger.service';
-
-/** DB row shape for Product (mirrors Prisma model). */
-interface ProductRow {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  stock: number;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-type ProductModelDelegate = {
-  findUnique(args: Record<string, unknown>): Promise<ProductRow | null>;
-  findMany(args?: Record<string, unknown>): Promise<ProductRow[]>;
-  count(args?: Record<string, unknown>): Promise<number>;
-  create(args: Record<string, unknown>): Promise<ProductRow>;
-  update(args: Record<string, unknown>): Promise<ProductRow>;
-  delete(args: Record<string, unknown>): Promise<void>;
-  findFirst(args?: Record<string, unknown>): Promise<ProductRow | null>;
-};
+import { ProductOrmEntity } from '@/modules/product/infrastructure/orm/product-orm.entity';
 
 @Injectable()
-export class PrismaProductRepository
-  extends PrismaBaseRepository<ProductRow>
+export class TypeOrmProductRepository
+  extends TypeOrmBaseRepository<ProductOrmEntity>
   implements IProductRepository
 {
-  constructor(prisma: PrismaService, logger: AppLoggerService) {
-    super(prisma, logger, 'Product');
+  constructor(typeOrmService: TypeOrmService, logger: AppLoggerService) {
+    super(typeOrmService, logger, 'Product');
   }
 
-  protected getModelDelegate(): ProductModelDelegate {
-    return (this.prisma as unknown as { product: ProductModelDelegate }).product;
+  protected get entity(): new () => ProductOrmEntity {
+    return ProductOrmEntity;
   }
 
-  private mapToDomain(product: ProductRow): ProductEntity {
+  private mapToDomain(product: ProductOrmEntity): ProductEntity {
     return ProductEntity.reconstitute({
       id: product.id,
       name: product.name,
@@ -84,7 +63,7 @@ export class PrismaProductRepository
   async create(data: Record<string, unknown>): Promise<ProductEntity>;
   async create(data: CreateProductDto): Promise<ProductEntity>;
   async create(data: Record<string, unknown> | CreateProductDto): Promise<ProductEntity> {
-    const product = await super.create(data as Partial<ProductRow>);
+    const product = await super.create(data as Partial<ProductOrmEntity>);
     return this.mapToDomain(product);
   }
 
@@ -94,7 +73,7 @@ export class PrismaProductRepository
     id: string,
     data: Record<string, unknown> | UpdateProductDto,
   ): Promise<ProductEntity> {
-    const product = await super.update(id, data as Partial<ProductRow>);
+    const product = await super.update(id, data as Partial<ProductOrmEntity>);
     return this.mapToDomain(product);
   }
 

@@ -8,26 +8,21 @@ import { toOptionalInt } from '@/common/utils/config/env-transform.util';
 class EnvironmentVariablesValidator {
   @IsString()
   @IsOptional()
-  CACHE_REDIS_HOST!: string;
+  REDIS_HOST!: string;
 
   @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
-  CACHE_REDIS_PORT!: number;
+  REDIS_PORT!: number;
 
   @IsString()
   @IsOptional()
-  CACHE_REDIS_PASSWORD!: string;
+  REDIS_PASSWORD!: string;
 
   @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
-  CACHE_REDIS_DB!: number;
-
-  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
-  @IsInt()
-  @IsOptional()
-  CACHE_REDIS_CONNECT_TIMEOUT!: number;
+  REDIS_DB!: number;
 
   @Transform(({ value }: { value: unknown }) => {
     if (value === null || value === undefined || value === '') {
@@ -38,24 +33,53 @@ class EnvironmentVariablesValidator {
   })
   @IsBoolean()
   @IsOptional()
-  CACHE_REDIS_LAZY_CONNECT!: boolean;
+  REDIS_TLS!: boolean;
+
+  @Transform(({ value }: { value: unknown }) => {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+    if (typeof value === 'boolean') return value;
+    return value === 'true' || value === '1';
+  })
+  @IsBoolean()
+  @IsOptional()
+  REDIS_CLUSTER!: boolean;
 
   @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
-  CACHE_REDIS_MAX_RETRIES!: number;
+  REDIS_CONNECT_TIMEOUT!: number;
+
+  @Transform(({ value }: { value: unknown }) => {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+    if (typeof value === 'boolean') return value;
+    return value === 'true' || value === '1';
+  })
+  @IsBoolean()
+  @IsOptional()
+  REDIS_LAZY_CONNECT!: boolean;
+
+  @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
+  @IsInt()
+  @IsOptional()
+  REDIS_MAX_RETRIES!: number;
 }
 
 export default registerAs<RedisConfig>('redis', () => {
   const validatedConfig = validateConfig(process.env, EnvironmentVariablesValidator);
 
   return {
-    host: validatedConfig.CACHE_REDIS_HOST ?? 'localhost',
-    port: validatedConfig.CACHE_REDIS_PORT ?? 6379,
-    password: validatedConfig.CACHE_REDIS_PASSWORD ?? '',
-    db: validatedConfig.CACHE_REDIS_DB,
-    connectTimeout: validatedConfig.CACHE_REDIS_CONNECT_TIMEOUT,
-    lazyConnect: validatedConfig.CACHE_REDIS_LAZY_CONNECT,
-    maxRetriesPerRequest: validatedConfig.CACHE_REDIS_MAX_RETRIES,
+    host: validatedConfig.REDIS_HOST ?? 'localhost',
+    port: validatedConfig.REDIS_PORT ?? 6379,
+    password: validatedConfig.REDIS_PASSWORD ?? '',
+    db: validatedConfig.REDIS_DB,
+    tls: validatedConfig.REDIS_TLS,
+    cluster: validatedConfig.REDIS_CLUSTER,
+    connectTimeout: validatedConfig.REDIS_CONNECT_TIMEOUT,
+    lazyConnect: validatedConfig.REDIS_LAZY_CONNECT,
+    maxRetriesPerRequest: validatedConfig.REDIS_MAX_RETRIES,
   };
 });

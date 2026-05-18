@@ -1,6 +1,12 @@
 export type DatabaseConfig = {
   url: string;
   ssl?: boolean;
-  connectionTimeout?: number;
+  acquireTimeout?: number;
   idleTimeout?: number;
+  poolMin?: number;
+  poolMax?: number;
+  retryMax?: number;
+  retryDelay?: number;
+  retryBackoff?: number;
+  slowQuery?: number;
 };
