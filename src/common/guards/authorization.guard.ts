@@ -116,7 +116,7 @@ export class AuthorizationGuard implements CanActivate, OnModuleInit {
     this.logger.info('[AuthorizationGuard] Permission formats validated at startup');
   }
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthHttpRequest>();
     const { user } = request;
 
@@ -164,7 +164,7 @@ export class AuthorizationGuard implements CanActivate, OnModuleInit {
 
     if (
       requiredPermissions?.length &&
-      !this.hasRequiredPermissions(user, requiredPermissions, request)
+      !(await this.hasRequiredPermissions(user, requiredPermissions, request))
     ) {
       this.logger.security('Access denied — insufficient permissions', {
         userId: user.id,
@@ -180,24 +180,27 @@ export class AuthorizationGuard implements CanActivate, OnModuleInit {
     return true;
   }
 
-  private hasRequiredPermissions(
+  private async hasRequiredPermissions(
     user: AuthenticatedUser,
     requiredPermissions: string[],
     request: AuthHttpRequest,
-  ): boolean {
-    return requiredPermissions.every((perm) => {
-      validatePermissionFormat(perm);
-      const parts = perm.split(':');
-      const permission: Permission = { resource: parts[0], action: parts[1] };
-      return this.checkPermission(user, permission, request);
-    });
+  ): Promise<boolean> {
+    const results = await Promise.all(
+      requiredPermissions.map(async (perm) => {
+        validatePermissionFormat(perm);
+        const parts = perm.split(':');
+        const permission: Permission = { resource: parts[0], action: parts[1] };
+        return this.checkPermission(user, permission, request);
+      }),
+    );
+    return results.every(Boolean);
   }
 
-  private checkPermission(
+  private async checkPermission(
     user: AuthenticatedUser,
     permission: Permission,
     request: AuthHttpRequest,
-  ): boolean {
+  ): Promise<boolean> {
     const userPermissions = ROLE_PERMISSIONS[user.role] ?? [];
     const matched = userPermissions.find(
       (p) => p.resource === permission.resource && p.action === permission.action,
@@ -207,27 +210,30 @@ export class AuthorizationGuard implements CanActivate, OnModuleInit {
     return this.checkConditions(user, matched, request);
   }
 
-  private checkConditions(
+  private async checkConditions(
     user: AuthenticatedUser,
     permission: Permission,
     request: AuthHttpRequest,
-  ): boolean {
-    return (permission.conditions ?? []).every((condition) => {
-      switch (condition) {
-        case 'own':
-          return this.checkOwnership(user, permission.resource, request);
-        default:
-          this.logger.warn(`[AuthorizationGuard] Unknown condition: "${condition}"`);
-          return false;
-      }
-    });
+  ): Promise<boolean> {
+    const results = await Promise.all(
+      (permission.conditions ?? []).map(async (condition) => {
+        switch (condition) {
+          case 'own':
+            return this.checkOwnership(user, permission.resource, request);
+          default:
+            this.logger.warn(`[AuthorizationGuard] Unknown condition: "${condition}"`);
+            return false;
+        }
+      }),
+    );
+    return results.every(Boolean);
   }
 
-  private checkOwnership(
+  private async checkOwnership(
     user: AuthenticatedUser,
     resource: string,
     request: AuthHttpRequest,
-  ): boolean {
+  ): Promise<boolean> {
     const params = request.params as Record<string, string>;
     const resourceId = params['id'] ?? params['userId'] ?? params['productId'];
     if (!resourceId) return true; // collection endpoint — không áp dụng ownership

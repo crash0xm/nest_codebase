@@ -117,7 +117,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalInterceptors(new ResponseInterceptor());
 
   // ── Swagger ─────────────────────────────────────────────────────────────────
-  if (nodeEnv !== 'production') {
+  if (nodeEnv === 'development' || nodeEnv === 'staging') {
     const doc = new DocumentBuilder()
       .setTitle('NestJS SaaS API')
       .setDescription('Enterprise-grade SaaS backend — full API reference')
@@ -156,7 +156,7 @@ async function bootstrap(): Promise<void> {
   logger.log(`🚀 Running: http://localhost:${port}/${apiPrefix}`);
   logger.log(`🌍 Env: ${nodeEnv}`);
 
-  if (nodeEnv !== 'production') {
+  if (nodeEnv === 'development' || nodeEnv === 'staging') {
     logger.log(`\n======================================================`);
     logger.log(`👉 📚 Swagger Docs: http://localhost:${port}/${apiPrefix}/docs`);
     logger.log(`======================================================\n`);

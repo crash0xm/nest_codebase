@@ -8,6 +8,10 @@ export type AuthConfig = {
       secret: string;
       expiresIn: string;
     };
+    passwordReset: {
+      secret: string;
+      expiresIn: string;
+    };
   };
   session: {
     maxActive: number;

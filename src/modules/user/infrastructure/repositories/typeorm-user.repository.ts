@@ -57,7 +57,7 @@ export class TypeOrmUserRepository
       lastName,
       role: user.systemRole as unknown as Role,
       isActive: user.isActive,
-      isEmailVerified: true,
+      isEmailVerified: user.isEmailVerified,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       deletedAt: null,
@@ -125,6 +125,14 @@ export class TypeOrmUserRepository
 
   async delete(id: string): Promise<void> {
     await super.update(id, { isActive: false } as Partial<UserOrmEntity>);
+  }
+
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    const repo = this.getRepository();
+    await repo.update(
+      id as unknown as FindOptionsWhere<UserOrmEntity>,
+      { password_hash: passwordHash } as Partial<UserOrmEntity>,
+    );
   }
 
   async existsByEmail(email: string): Promise<boolean> {

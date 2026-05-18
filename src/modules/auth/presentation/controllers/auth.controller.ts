@@ -24,10 +24,11 @@ import { RegisterDto } from '../dtos/register.dto';
 import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
 import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { ChangePasswordDto } from '../dtos/change-password.dto';
-import { AuthResponseDto } from '../dtos/auth-response.dto';
+import { AuthResponseDto, AuthMeResponseDto } from '../dtos/auth-response.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { LocalAuthGuard } from '@/common/guards/local-auth.guard';
 import type { AuthUserPayload } from '../../application/services/auth.service';
+import { AuthMapper } from '../mappers/auth.mapper';
 import type { Role } from '@/modules/user/domain/enums/role.enum';
 
 type LoginRequest = FastifyRequest & { user: AuthUserPayload };
@@ -59,16 +60,7 @@ export class AuthController {
       registerDto.fullName,
     );
     const expiresIn = this.authService.getAccessTokenTtlSeconds();
-
-    return {
-      ...tokens,
-      expiresIn,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
-    };
+    return AuthMapper.toAuthResponse(tokens, user, expiresIn);
   }
 
   @Public()
@@ -80,16 +72,7 @@ export class AuthController {
   async login(@Req() req: LoginRequest): Promise<AuthResponseDto> {
     const tokens = await this.authService.login(req.user);
     const expiresIn = this.authService.getAccessTokenTtlSeconds();
-
-    return {
-      ...tokens,
-      expiresIn,
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        role: req.user.role,
-      },
-    };
+    return AuthMapper.toAuthResponse(tokens, req.user, expiresIn);
   }
 
   @Public()
@@ -101,16 +84,15 @@ export class AuthController {
     const tokens = await this.authService.refreshTokens(refreshTokenDto.refreshToken);
     const payload = this.authService.decodePayload(tokens.accessToken);
     const expiresIn = this.authService.getAccessTokenTtlSeconds();
-
-    return {
-      ...tokens,
-      expiresIn,
-      user: {
+    return AuthMapper.toAuthResponse(
+      tokens,
+      {
         id: payload.sub,
         email: payload.email,
         role: payload.role,
       },
-    };
+      expiresIn,
+    );
   }
 
   @Get('me')
@@ -119,52 +101,12 @@ export class AuthController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Current user information',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-        data: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', example: 'uuid-...' },
-            email: { type: 'string', example: 'user@example.com' },
-            fullName: { type: 'string', example: 'Nguyễn Văn B' },
-            systemRole: { type: 'string', example: 'user' },
-            locale: { type: 'string', example: 'vi' },
-            timezone: { type: 'string', example: 'Asia/Ho_Chi_Minh' },
-            avatarUrl: { type: 'string', nullable: true },
-            isActive: { type: 'boolean', example: true },
-            lastLoginAt: { type: 'string', example: '2026-04-17T08:30:00Z' },
-          },
-        },
-      },
-    },
+    type: AuthMeResponseDto,
   })
-  async getMe(@Req() req: LogoutRequest): Promise<{
-    id: string;
-    email: string;
-    fullName?: string;
-    systemRole: string;
-    isActive: boolean;
-    isEmailVerified: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-  }> {
+  async getMe(@Req() req: LogoutRequest): Promise<AuthMeResponseDto> {
     const { user } = req;
-
-    // Get full user information from repository
     const fullUser = await this.authService.getUserById(user.id);
-
-    return {
-      id: fullUser.id,
-      email: fullUser.email,
-      fullName: fullUser.fullName,
-      systemRole: fullUser.role,
-      isActive: fullUser.isActive,
-      isEmailVerified: fullUser.isEmailVerified,
-      createdAt: fullUser.createdAt,
-      updatedAt: fullUser.updatedAt,
-    };
+    return AuthMapper.toMeResponse(fullUser);
   }
 
   @Post('logout')

@@ -67,10 +67,9 @@ jobs:
       - name: Run Typecheck
         run: pnpm typecheck
 
-      - name: Prisma Generate & Migrate
+      - name: TypeORM Migration Check
         run: |
-          pnpm exec prisma generate
-          pnpm exec prisma migrate deploy
+          pnpm exec ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:show
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/saas_test
 

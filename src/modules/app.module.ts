@@ -152,7 +152,7 @@ import { UserModule } from '@modules/user/user.module';
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },
 
     // Global authentication
-    { provide: APP_GUARD, useExisting: AuthGuard },
+    { provide: APP_GUARD, useClass: AuthGuard },
 
     // Global role + permission authorization
     { provide: APP_GUARD, useClass: AuthorizationGuard },

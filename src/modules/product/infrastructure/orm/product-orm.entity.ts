@@ -7,7 +7,7 @@ export class ProductOrmEntity extends BaseEntity {
     super();
   }
 
-  @Column()
+  @Column({ name: 'name' })
   name!: string;
 
   @Column({ type: 'varchar', nullable: true })
@@ -21,4 +21,7 @@ export class ProductOrmEntity extends BaseEntity {
 
   @Column({ name: 'is_active', default: true })
   isActive!: boolean;
+
+  @Column({ name: 'user_id', type: 'uuid', nullable: true })
+  userId?: string;
 }

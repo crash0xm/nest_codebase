@@ -7,6 +7,7 @@ import {
   HttpStatus,
   HttpCode,
   Param,
+  ParseUUIDPipe,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -20,37 +21,15 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CreateUserDto } from '../dtos/create-user.dto';
+import { UserResponseDto, UserPaginatedResponseDto } from '../dtos/user-response.dto';
 import { CreateUserDataDto } from '../../domain/repositories/user.repository.interface';
-import { BaseResponse } from '@/common/interfaces/base-response.interface';
 import { Role } from '@/modules/user/domain/enums/role.enum';
 import { CreateUserUseCase } from '../../application/use-cases/create-user.use-case';
 import { GetUserByIdUseCase } from '../../application/use-cases/get-user-by-id.use-case';
 import { GetUsersUseCase } from '../../application/use-cases/get-users.use-case';
-
+import { BaseResponse } from '@/common/interfaces/base-response.interface';
 import { Roles } from '@/common/guards/authorization.guard';
-import type { UserProps } from '../../domain/entities/user.entity';
-
-class UserResponse {
-  id!: string;
-  email!: string;
-  firstName!: string;
-  lastName!: string;
-  fullName!: string;
-  role!: Role;
-  isActive!: boolean;
-  isEmailVerified!: boolean;
-  createdAt!: Date;
-  updatedAt!: Date;
-}
-
-interface UsersResponse {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  fullName: string;
-  role: Role;
-}
+import { UserMapper } from '../mappers/user.mapper';
 
 interface PaginationParams {
   page?: number;
@@ -67,33 +46,6 @@ export class UserController {
     private readonly getUsersUseCase: GetUsersUseCase,
   ) {}
 
-  private toResponse(
-    user: Pick<
-      UserProps,
-      | 'id'
-      | 'email'
-      | 'firstName'
-      | 'lastName'
-      | 'role'
-      | 'isActive'
-      | 'isEmailVerified'
-      | 'createdAt'
-      | 'updatedAt'
-    >,
-  ): UserResponse {
-    return {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      fullName: `${user.firstName} ${user.lastName}`,
-      role: user.role,
-      isActive: user.isActive,
-      isEmailVerified: user.isEmailVerified,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
-  }
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -103,7 +55,25 @@ export class UserController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'User created successfully',
-    type: UserResponse,
+    type: UserResponseDto,
+    schema: {
+      example: {
+        success: true,
+        data: {
+          id: '550e8400-e29b-41d4-a716-446655440000',
+          email: 'john.doe@example.com',
+          firstName: 'John',
+          lastName: 'Doe',
+          fullName: 'John Doe',
+          role: 'user',
+          isActive: true,
+          isEmailVerified: false,
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+        },
+        message: 'User created successfully',
+      },
+    },
   })
   @ApiBody({
     type: CreateUserDto,
@@ -118,16 +88,19 @@ export class UserController {
     }),
   )
   @Roles(Role.ADMIN)
-  async createUser(@Body() createUserDto: CreateUserDataDto): Promise<BaseResponse<UserResponse>> {
+  async createUser(
+    @Body() createUserDto: CreateUserDataDto,
+  ): Promise<BaseResponse<UserResponseDto>> {
     const user = await this.createUserUseCase.execute(createUserDto);
     return {
       success: true,
-      data: this.toResponse(user),
+      data: UserMapper.toResponse(user),
       message: 'User created successfully',
     };
   }
 
   @Get()
+  @Roles(Role.ADMIN)
   @ApiOperation({
     summary: 'Get all users with pagination',
     description: 'Retrieve paginated list of users with optional filtering',
@@ -149,6 +122,7 @@ export class UserController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Users retrieved successfully',
+    type: UserPaginatedResponseDto,
     schema: {
       example: {
         success: true,
@@ -186,22 +160,24 @@ export class UserController {
   })
   async getUsers(
     @Query() paginationParams: PaginationParams,
-  ): Promise<BaseResponse<UsersResponse[]>> {
+  ): Promise<BaseResponse<UserPaginatedResponseDto>> {
     const result = await this.getUsersUseCase.execute({
       page: paginationParams.page ?? 1,
       limit: paginationParams.limit ?? 10,
     });
+    const totalPages = Math.ceil(result.total / result.limit);
 
     return {
       success: true,
-      data: result.data.map((user) => ({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: `${user.firstName} ${user.lastName}`,
-        role: user.role,
-      })),
+      data: UserMapper.toPaginatedResponse({
+        data: result.data,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages,
+        hasNext: result.page < totalPages,
+        hasPrev: result.page > 1,
+      }),
       message: 'Users retrieved successfully',
       meta: {
         timestamp: new Date().toISOString(),
@@ -209,7 +185,7 @@ export class UserController {
           page: result.page,
           limit: result.limit,
           total: result.total,
-          totalPages: Math.ceil(result.total / result.limit),
+          totalPages,
         },
       },
     };
@@ -229,7 +205,7 @@ export class UserController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'User retrieved successfully',
-    type: UserResponse,
+    type: UserResponseDto,
     schema: {
       example: {
         success: true,
@@ -258,11 +234,13 @@ export class UserController {
     status: HttpStatus.NOT_FOUND,
     description: 'User not found',
   })
-  async getUserById(@Param('id') id: string): Promise<BaseResponse<UserResponse>> {
+  async getUserById(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<BaseResponse<UserResponseDto>> {
     const user = await this.getUserByIdUseCase.execute(id);
     return {
       success: true,
-      data: this.toResponse(user),
+      data: UserMapper.toResponse(user),
       message: 'User retrieved successfully',
     };
   }

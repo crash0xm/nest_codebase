@@ -6,11 +6,9 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
-COPY prisma ./prisma
 
 RUN npm install -g pnpm@latest \
-  && pnpm install --frozen-lockfile --prod \
-  && pnpm exec prisma generate
+  && pnpm install --frozen-lockfile --prod
 
 # -------------------------------------------------
 # Stage 2: builder - build TypeScript
@@ -19,14 +17,12 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
-COPY prisma ./prisma
 
 RUN npm install -g pnpm@latest \
   && pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm exec prisma generate \
-  && pnpm build
+RUN pnpm build
 
 # -------------------------------------------------
 # Stage 3: runner - production runtime
@@ -43,8 +39,6 @@ RUN addgroup --system appgroup \
 # Copy artifacts from previous stages
 COPY --from=deps    /app/node_modules      ./node_modules
 COPY --from=builder /app/dist              ./dist
-COPY --from=builder /app/src/generated     ./src/generated
-COPY --from=builder /app/prisma            ./prisma
 COPY package.json ./
 
 USER appuser

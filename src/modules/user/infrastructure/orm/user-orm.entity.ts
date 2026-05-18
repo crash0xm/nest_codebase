@@ -40,6 +40,9 @@ export class UserOrmEntity extends BaseEntity {
   @Column({ name: 'is_active', default: true })
   isActive!: boolean;
 
+  @Column({ name: 'is_email_verified', default: false })
+  isEmailVerified!: boolean;
+
   @Column({ name: 'last_login_at', nullable: true, type: 'timestamptz' })
   lastLoginAt!: Date | null;
 }

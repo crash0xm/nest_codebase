@@ -22,6 +22,14 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN!: string;
 
+  @IsString()
+  @IsNotEmpty()
+  JWT_PASSWORD_RESET_SECRET!: string;
+
+  @IsString()
+  @IsOptional()
+  JWT_PASSWORD_RESET_EXPIRES_IN!: string;
+
   @Transform(({ value }: { value: unknown }) => toOptionalInt(value))
   @IsInt()
   @IsOptional()
@@ -100,6 +108,10 @@ export default registerAs<AuthConfig>('auth', () => {
       refreshToken: {
         secret: validatedConfig.JWT_REFRESH_SECRET,
         expiresIn: validatedConfig.JWT_REFRESH_EXPIRES_IN ?? '7d',
+      },
+      passwordReset: {
+        secret: validatedConfig.JWT_PASSWORD_RESET_SECRET,
+        expiresIn: validatedConfig.JWT_PASSWORD_RESET_EXPIRES_IN ?? '1h',
       },
     },
     session: {

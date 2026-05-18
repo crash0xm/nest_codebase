@@ -25,7 +25,9 @@ export class RedisTokenStore implements ITokenStore, OnModuleDestroy {
 
     // Create separate Redis instance for token store with different DB
     this.redisTokenStore = redisClient.duplicate();
-    void this.redisTokenStore.select(1);
+    this.redisTokenStore.select(1).catch((err: Error) => {
+      this.logger.warn('Failed to select Redis DB 1:', err.message);
+    });
 
     this.redisTokenStore.on('error', (err: Error) => {
       this.logger.error('Redis token store error:', err.message);

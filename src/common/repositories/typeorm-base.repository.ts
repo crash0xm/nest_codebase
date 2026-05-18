@@ -15,6 +15,7 @@ import {
   ILike,
   Between,
   EntityManager,
+  UpdateResult,
 } from 'typeorm';
 import { TypeOrmService } from '@/modules/typeorm/typeorm.service';
 import { AppLoggerService, LogContext } from '@/common/services/logger.service';
@@ -286,13 +287,17 @@ export abstract class TypeOrmBaseRepository<
       'update',
       async () => {
         const repo = this.getRepository();
-        await repo.update(id as unknown as FindOptionsWhere<T>, data);
-        const result = await repo.findOne({
-          where: { id } as unknown as FindOptionsWhere<T>,
-        });
-        if (!result)
+        const typedQb: import('typeorm').UpdateQueryBuilder<ObjectLiteral> = repo
+          .createQueryBuilder()
+          .update(this.entity as unknown as new () => ObjectLiteral)
+          .set(data as DeepPartial<ObjectLiteral>)
+          .where('id = :id', { id: id as unknown as string })
+          .returning('*');
+        const { raw }: UpdateResult = await typedQb.execute();
+        if (!raw?.length) {
           throw new DatabaseError(`Update failed: ${this.entityName} ${String(id)} not found`);
-        return result as unknown as TEntity;
+        }
+        return raw[0] as unknown as TEntity;
       },
       { id, data },
     );

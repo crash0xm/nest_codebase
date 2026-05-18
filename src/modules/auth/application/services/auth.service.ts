@@ -230,33 +230,13 @@ export class AuthService {
       return;
     }
 
-    // TODO: Implement email sending with reset token
-    // For now, just log the request
-    this.logger.log(`[Auth] Password reset requested: userId=${user.id} email=${email}`);
-
-    // Generate reset token (valid for 1 hour)
-    const resetToken = await this.jwtService.signAsync(
-      {
-        sub: user.id,
-        email: user.email,
-        type: 'password_reset',
-      },
-      {
-        secret: this.authConf.jwt.accessToken.secret,
-        expiresIn: '1h',
-      },
-    );
-
-    // TODO: Send email with reset token
-    // await this.emailService.sendPasswordResetEmail(user.email, resetToken);
-
-    this.logger.log(`[Auth] Reset token generated: userId=${user.id} token=${resetToken}`);
+    this.logger.log(`[Auth] Password reset requested: userId=${user.id}`);
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
     try {
       const payload = await this.jwtService.verifyAsync<PasswordResetPayload>(token, {
-        secret: this.authConf.jwt.accessToken.secret,
+        secret: this.authConf.jwt.passwordReset.secret,
       });
 
       const user = await this.userRepository.findById(payload.sub);
@@ -267,13 +247,7 @@ export class AuthService {
       // Hash new password
       const passwordHash = await this.passwordHasher.hash(newPassword);
 
-      // Update user password using entity method
-      user.setPasswordHash(passwordHash);
-      await this.userRepository.update(user.id, {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-      });
+      await this.userRepository.updatePassword(user.id, passwordHash);
 
       // Revoke all tokens for security
       await this.tokenStore.revokeAll(user.id);
@@ -305,13 +279,7 @@ export class AuthService {
     // Hash new password
     const newPasswordHash = await this.passwordHasher.hash(newPassword);
 
-    // Update password using entity method
-    user.setPasswordHash(newPasswordHash);
-    await this.userRepository.update(userId, {
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-    });
+    await this.userRepository.updatePassword(userId, newPasswordHash);
 
     // Revoke all tokens for security (force re-login)
     await this.tokenStore.revokeAll(userId);
