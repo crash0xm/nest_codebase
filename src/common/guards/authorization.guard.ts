@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
 import { AppLoggerService } from '@/common/services/logger.service';
 import { ForbiddenError, UnauthorizedError } from '@/common/domain/errors/application.error';
+import { InfrastructureError } from '@/common/domain/errors/infrastructure.error';
 import { ResourceOwnershipService } from '@/common/services/resource-ownership.service';
 import type { AuthenticatedUser } from '@/common/guards/auth.guard';
 
@@ -93,8 +94,9 @@ export const Roles = (...roles: string[]): import('@nestjs/common').CustomDecora
 function validatePermissionFormat(perm: string): void {
   const parts = perm.split(':');
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    throw new Error(
+    throw new InfrastructureError(
       `[AuthorizationGuard] Invalid permission format: "${perm}". Expected "resource:action"`,
+      'INVALID_PERMISSION_FORMAT',
     );
   }
 }

@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import { BaseEntity } from '@/common/domain/base.entity';
+import { BaseDomainEntity } from '@/common/domain/base-domain.entity';
+import { DomainError } from '@/common/domain/errors/domain.error';
 
-export class ProductEntity extends BaseEntity {
+export class ProductEntity extends BaseDomainEntity {
   private _name: string;
   private _description: string;
   private _price: number;
@@ -19,10 +20,10 @@ export class ProductEntity extends BaseEntity {
 
   static create(name: string, description: string, price: number, stock: number): ProductEntity {
     if (price <= 0) {
-      throw new Error('Price must be greater than 0');
+      throw new DomainError('Price must be greater than 0', 'INVALID_PRICE', { price });
     }
     if (stock < 0) {
-      throw new Error('Stock cannot be negative');
+      throw new DomainError('Stock cannot be negative', 'INVALID_STOCK', { stock });
     }
 
     const now = new Date();
@@ -63,7 +64,7 @@ export class ProductEntity extends BaseEntity {
   // Business methods
   updatePrice(newPrice: number): void {
     if (newPrice <= 0) {
-      throw new Error('Price must be greater than 0');
+      throw new DomainError('Price must be greater than 0', 'INVALID_PRICE', { price: newPrice });
     }
     this._price = newPrice;
     this.touch();
@@ -72,7 +73,10 @@ export class ProductEntity extends BaseEntity {
   adjustStock(quantity: number): void {
     const newStock = this._stock + quantity;
     if (newStock < 0) {
-      throw new Error('Insufficient stock');
+      throw new DomainError('Insufficient stock', 'INSUFFICIENT_STOCK', {
+        current: this._stock,
+        requested: quantity,
+      });
     }
     this._stock = newStock;
     this.touch();

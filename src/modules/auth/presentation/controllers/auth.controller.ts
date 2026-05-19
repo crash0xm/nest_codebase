@@ -30,6 +30,8 @@ import { LocalAuthGuard } from '@/common/guards/local-auth.guard';
 import type { AuthUserPayload } from '../../application/services/auth.service';
 import { AuthMapper } from '../mappers/auth.mapper';
 import type { Role } from '@/modules/user/domain/enums/role.enum';
+import { ok } from '@/common/utils/response.util';
+import { BaseResponse } from '@/common/interfaces/base-response.interface';
 
 type LoginRequest = FastifyRequest & { user: AuthUserPayload };
 
@@ -53,14 +55,17 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'User registration' })
   @ApiResponse({ status: HttpStatus.CREATED, type: AuthResponseDto })
-  async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Req() req: FastifyRequest,
+  ): Promise<BaseResponse<AuthResponseDto>> {
     const { user, tokens } = await this.authService.register(
       registerDto.email,
       registerDto.password,
       registerDto.fullName,
     );
     const expiresIn = this.authService.getAccessTokenTtlSeconds();
-    return AuthMapper.toAuthResponse(tokens, user, expiresIn);
+    return ok(AuthMapper.toAuthResponse(tokens, user, expiresIn), 'Registration successful', req);
   }
 
   @Public()
@@ -69,10 +74,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: HttpStatus.OK, type: AuthResponseDto })
-  async login(@Req() req: LoginRequest): Promise<AuthResponseDto> {
+  async login(@Req() req: LoginRequest): Promise<BaseResponse<AuthResponseDto>> {
     const tokens = await this.authService.login(req.user);
     const expiresIn = this.authService.getAccessTokenTtlSeconds();
-    return AuthMapper.toAuthResponse(tokens, req.user, expiresIn);
+    return ok(AuthMapper.toAuthResponse(tokens, req.user, expiresIn), 'Login successful', req);
   }
 
   @Public()
@@ -80,18 +85,25 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiResponse({ status: HttpStatus.OK, type: AuthResponseDto })
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<AuthResponseDto> {
+  async refreshToken(
+    @Body() refreshTokenDto: RefreshTokenDto,
+    @Req() req: FastifyRequest,
+  ): Promise<BaseResponse<AuthResponseDto>> {
     const tokens = await this.authService.refreshTokens(refreshTokenDto.refreshToken);
     const payload = this.authService.decodePayload(tokens.accessToken);
     const expiresIn = this.authService.getAccessTokenTtlSeconds();
-    return AuthMapper.toAuthResponse(
-      tokens,
-      {
-        id: payload.sub,
-        email: payload.email,
-        role: payload.role,
-      },
-      expiresIn,
+    return ok(
+      AuthMapper.toAuthResponse(
+        tokens,
+        {
+          id: payload.sub,
+          email: payload.email,
+          role: payload.role,
+        },
+        expiresIn,
+      ),
+      'Token refreshed successfully',
+      req,
     );
   }
 
@@ -103,10 +115,10 @@ export class AuthController {
     description: 'Current user information',
     type: AuthMeResponseDto,
   })
-  async getMe(@Req() req: LogoutRequest): Promise<AuthMeResponseDto> {
+  async getMe(@Req() req: LogoutRequest): Promise<BaseResponse<AuthMeResponseDto>> {
     const { user } = req;
     const fullUser = await this.authService.getUserById(user.id);
-    return AuthMapper.toMeResponse(fullUser);
+    return ok(AuthMapper.toMeResponse(fullUser), 'User retrieved successfully', req);
   }
 
   @Post('logout')
@@ -160,12 +172,14 @@ export class AuthController {
   })
   async forgotPassword(
     @Body() forgotPasswordDto: ForgotPasswordDto,
-  ): Promise<{ success: boolean; message: string }> {
+    @Req() req: FastifyRequest,
+  ): Promise<BaseResponse<{ success: boolean; message: string }>> {
     await this.authService.forgotPassword(forgotPasswordDto.email);
-    return {
-      success: true,
-      message: 'If email exists, reset instructions have been sent',
-    };
+    return ok(
+      { success: true, message: 'If email exists, reset instructions have been sent' },
+      undefined,
+      req,
+    );
   }
 
   @Public()
@@ -185,12 +199,10 @@ export class AuthController {
   })
   async resetPassword(
     @Body() resetPasswordDto: ResetPasswordDto,
-  ): Promise<{ success: boolean; message: string }> {
+    @Req() req: FastifyRequest,
+  ): Promise<BaseResponse<{ success: boolean; message: string }>> {
     await this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
-    return {
-      success: true,
-      message: 'Password reset successful',
-    };
+    return ok({ success: true, message: 'Password reset successful' }, undefined, req);
   }
 
   @Patch('change-password')
@@ -211,15 +223,12 @@ export class AuthController {
   async changePassword(
     @Req() req: LogoutRequest,
     @Body() changePasswordDto: ChangePasswordDto,
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<BaseResponse<{ success: boolean; message: string }>> {
     await this.authService.changePassword(
       req.user.id,
       changePasswordDto.currentPassword,
       changePasswordDto.newPassword,
     );
-    return {
-      success: true,
-      message: 'Password changed successful',
-    };
+    return ok({ success: true, message: 'Password changed successful' }, undefined, req);
   }
 }

@@ -1,6 +1,8 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from '@/modules/redis/redis.module';
 
 export interface CacheOptions {
   ttl?: number; // Time to live in seconds
@@ -28,7 +30,10 @@ export interface CacheStats {
 
 @Injectable()
 export class CacheService {
-  constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
+  constructor(
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   async get<T>(key: string): Promise<T | null> {
     const value = await this.cacheManager.get<T>(key);
@@ -44,8 +49,52 @@ export class CacheService {
     await this.cacheManager.del(key);
   }
 
-  async invalidateByTag(_tag: string): Promise<void> {
-    // TODO: Implement with Redis SCAN pattern: `tag:${tag}:*`
-    // Need to inject Redis client directly to use SCAN
+  async setWithTag<T>(key: string, value: T, tag: string, ttlMs?: number): Promise<void> {
+    await this.cacheManager.set(key, value, ttlMs);
+
+    const tagKey = `tag:${tag}`;
+    const ttlSeconds = ttlMs ? Math.ceil(ttlMs / 1000) : 3600;
+    await this.redis.sadd(tagKey, key);
+    await this.redis.expire(tagKey, ttlSeconds);
+  }
+
+  async invalidateByTag(tag: string): Promise<void> {
+    const tagKey = `tag:${tag}`;
+    const keys: string[] = [];
+
+    let cursor = '0';
+    do {
+      const [nextCursor, members] = await this.redis.sscan(tagKey, cursor, 'COUNT', 100);
+      cursor = nextCursor;
+      keys.push(...members);
+    } while (cursor !== '0');
+
+    if (keys.length === 0) return;
+
+    const pipeline = this.redis.pipeline();
+    for (const key of keys) {
+      pipeline.del(key);
+    }
+    pipeline.del(tagKey);
+    await pipeline.exec();
+  }
+
+  async invalidateByPattern(pattern: string): Promise<void> {
+    const keys: string[] = [];
+    let cursor = '0';
+
+    do {
+      const [nextCursor, found] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      keys.push(...found);
+    } while (cursor !== '0');
+
+    if (keys.length === 0) return;
+
+    const pipeline = this.redis.pipeline();
+    for (const key of keys) {
+      pipeline.del(key);
+    }
+    await pipeline.exec();
   }
 }

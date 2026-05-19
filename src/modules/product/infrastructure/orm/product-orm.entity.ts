@@ -1,8 +1,8 @@
 import { Entity, Column } from 'typeorm';
-import { BaseEntity } from '@/common/domain/base.entity';
+import { BaseOrmEntity } from '@/common/infrastructure/base-orm.entity';
 
 @Entity('products')
-export class ProductOrmEntity extends BaseEntity {
+export class ProductOrmEntity extends BaseOrmEntity {
   constructor() {
     super();
   }

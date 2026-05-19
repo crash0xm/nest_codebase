@@ -1,4 +1,4 @@
-import { BaseEntity } from '@/common/domain/base.entity';
+import { BaseDomainEntity } from '@/common/domain/base-domain.entity';
 
 import { Role } from '../enums/role.enum';
 import { Email } from '../value-objects/email.value-object';
@@ -20,7 +20,7 @@ export interface UserProps {
   passwordHash?: string | null;
 }
 
-export class UserEntity extends BaseEntity {
+export class UserEntity extends BaseDomainEntity {
   private _email: Email;
   private _firstName: string;
   private _lastName: string;

@@ -1,8 +1,12 @@
-import { Controller, Get, Post, Body, Param, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, HttpStatus, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { FastifyRequest } from 'fastify';
 import { CreateProductUseCase } from '../../application/use-cases/create-product.use-case';
 import { ProductEntity } from '../../domain/entities/product.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
+import { BaseResponse } from '@/common/interfaces/base-response.interface';
+import { ok } from '@/common/utils/response.util';
+import { ApplicationError } from '@/common/domain/errors/application.error';
 
 @ApiTags('Products')
 @Controller('products')
@@ -21,8 +25,12 @@ export class ProductController {
     status: HttpStatus.CONFLICT,
     description: 'Product with this name already exists',
   })
-  async create(@Body() createProductDto: CreateProductDto): Promise<ProductEntity> {
-    return this.createProductUseCase.execute(createProductDto);
+  async create(
+    @Body() createProductDto: CreateProductDto,
+    @Req() req: FastifyRequest,
+  ): Promise<BaseResponse<ProductEntity>> {
+    const product = await this.createProductUseCase.execute(createProductDto);
+    return ok(product, 'Product created successfully', req);
   }
 
   @Get(':id')
@@ -37,8 +45,7 @@ export class ProductController {
     description: 'Product not found',
   })
   findById(@Param('id') _id: string): never {
-    // TODO: Implement GetProductByIdUseCase
-    throw new Error('Not implemented yet');
+    throw new ApplicationError('This endpoint is not yet implemented', 'NOT_IMPLEMENTED', 501);
   }
 
   @Get()
@@ -48,7 +55,6 @@ export class ProductController {
     description: 'Products retrieved successfully',
   })
   findAll(): never {
-    // TODO: Implement GetProductsUseCase
-    throw new Error('Not implemented yet');
+    throw new ApplicationError('This endpoint is not yet implemented', 'NOT_IMPLEMENTED', 501);
   }
 }

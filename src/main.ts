@@ -3,9 +3,9 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './modules/app.module';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLoggerService } from 'nestjs-pino';
+import { InfrastructureError } from '@/common/domain/errors/infrastructure.error';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -28,8 +28,9 @@ async function bootstrap(): Promise<void> {
 
   const corsOrigins = configService.get<string[]>('security.cors.allowedOrigins') ?? [];
   if (corsOrigins.includes('*')) {
-    throw new Error(
+    throw new InfrastructureError(
       'CORS allowedOrigins cannot include "*" in production. Please specify explicit origins.',
+      'CORS_WILDCARD_FORBIDDEN',
     );
   }
   const corsMethods = configService.get<string[]>('security.cors.allowedMethods') ?? ['GET'];
@@ -53,7 +54,9 @@ async function bootstrap(): Promise<void> {
 
   // ── Fastify Compression Plugin ───────────────────────────────────────────────────
   await app.register(import('@fastify/compress'), {
-    encodings: ['gzip', 'deflate', 'br'],
+    encodings: ['br', 'gzip', 'deflate'],
+    threshold: 1024,
+    customTypes: /^(image|audio|video|application\/zip|application\/gzip)/,
   });
 
   // ── CORS — strict origin matching ──────────────────────────────────────────
@@ -102,9 +105,6 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // ── Global Interceptors ─────────────────────────────────────────────────────
-  app.useGlobalInterceptors(new ResponseInterceptor());
-
   // ── Swagger ─────────────────────────────────────────────────────────────────
   if (nodeEnv === 'development' || nodeEnv === 'staging') {
     const doc = new DocumentBuilder()
@@ -122,24 +122,38 @@ async function bootstrap(): Promise<void> {
 
   // ── Graceful shutdown ────────────────────────────────────────────────────────
   app.enableShutdownHooks();
-  (['SIGTERM', 'SIGINT'] as NodeJS.Signals[]).forEach((signal) => {
-    process.on(signal, (): void => {
-      logger.log(`[${signal}] Shutting down gracefully (${shutdownTimeout}ms)...`);
-      const forceExit = setTimeout(() => {
-        logger.error('Forced shutdown after timeout');
-        process.exit(1);
-      }, shutdownTimeout);
-      forceExit.unref();
+  let isClosing = false;
 
-      void app
-        .close()
-        .then(() => {
-          logger.log('Application closed gracefully');
-          process.exit(0);
-        })
-        .catch(() => process.exit(1));
-    });
-  });
+  const gracefulShutdown = (signal: string): void => {
+    if (isClosing) {
+      logger.warn(`[${signal}] Shutdown already in progress — ignoring duplicate signal`);
+      return;
+    }
+    isClosing = true;
+
+    logger.log(`[${signal}] Shutting down gracefully (timeout: ${shutdownTimeout}ms)...`);
+
+    const forceExit = setTimeout(() => {
+      logger.error('Forced shutdown after timeout — process.exit(1)');
+      process.exit(1);
+    }, shutdownTimeout);
+    forceExit.unref();
+
+    void app
+      .close()
+      .then(() => {
+        logger.log('Application closed gracefully');
+        clearTimeout(forceExit);
+        process.exit(0);
+      })
+      .catch((err: unknown) => {
+        logger.error('Error during graceful shutdown', err);
+        process.exit(1);
+      });
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
   await app.listen({ port, host: '0.0.0.0' });
   logger.log(`🚀 Running: http://localhost:${port}/${apiPrefix}`);

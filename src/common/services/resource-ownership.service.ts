@@ -1,6 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { IProductRepository } from '@/modules/product/domain/repositories/product.repository.interface';
-import { INJECTION_TOKENS } from '@/constants/injection-tokens';
+import { Injectable } from '@nestjs/common';
 
 type OwnershipHandler = (resourceId: string, userId: string) => boolean | Promise<boolean>;
 
@@ -8,14 +6,8 @@ type OwnershipHandler = (resourceId: string, userId: string) => boolean | Promis
 export class ResourceOwnershipService {
   private readonly handlers = new Map<string, OwnershipHandler>();
 
-  constructor(
-    @Inject(INJECTION_TOKENS.PRODUCT_REPOSITORY)
-    private readonly productRepo: IProductRepository,
-  ) {
+  constructor() {
     this.handlers.set('user', (resourceId, userId) => resourceId === userId);
-    this.handlers.set('product', (productId, userId) =>
-      this.productRepo.isOwnedBy(productId, userId),
-    );
   }
 
   async isOwner(userId: string, resource: string, resourceId: string): Promise<boolean> {

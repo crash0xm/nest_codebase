@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe,
   UsePipes,
   ValidationPipe,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +23,7 @@ import {
   ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { FastifyRequest } from 'fastify';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { UserResponseDto, UserPaginatedResponseDto } from '../dtos/user-response.dto';
 import { CreateUserDataDto } from '../../domain/repositories/user.repository.interface';
@@ -36,6 +38,7 @@ import { BaseResponse } from '@/common/interfaces/base-response.interface';
 import { Roles } from '@/common/guards/authorization.guard';
 import { UserMapper } from '../mappers/user.mapper';
 import { PaginationParams } from '@/common/dtos/pagination.dto';
+import { ok, paginated } from '@/common/utils/response.util';
 
 @ApiTags('Users')
 @Controller('users')
@@ -93,13 +96,10 @@ export class UserController {
   @Roles(Role.ADMIN)
   async createUser(
     @Body() createUserDto: CreateUserDataDto,
+    @Req() req: FastifyRequest,
   ): Promise<BaseResponse<UserResponseDto>> {
     const user = await this.createUserUseCase.execute(createUserDto);
-    return {
-      success: true,
-      data: UserMapper.toResponse(user),
-      message: 'User created successfully',
-    };
+    return ok(UserMapper.toResponse(user), 'User created successfully', req);
   }
 
   @Get()
@@ -163,35 +163,29 @@ export class UserController {
   })
   async getUsers(
     @Query() paginationParams: PaginationParams,
-  ): Promise<BaseResponse<UserPaginatedResponseDto>> {
+    @Req() req: FastifyRequest,
+  ): Promise<
+    BaseResponse<{
+      items: UserResponseDto[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>
+  > {
     const result = await this.getUsersUseCase.execute({
       page: paginationParams.page ?? 1,
       limit: paginationParams.limit ?? 10,
     });
-    const totalPages = Math.ceil(result.total / result.limit);
-
-    return {
-      success: true,
-      data: UserMapper.toPaginatedResponse({
-        data: result.data,
+    return paginated(
+      {
+        data: result.data.map(UserMapper.toResponse),
         total: result.total,
         page: result.page,
         limit: result.limit,
-        totalPages,
-        hasNext: result.page < totalPages,
-        hasPrev: result.page > 1,
-      }),
-      message: 'Users retrieved successfully',
-      meta: {
-        timestamp: new Date().toISOString(),
-        pagination: {
-          page: result.page,
-          limit: result.limit,
-          total: result.total,
-          totalPages,
-        },
       },
-    };
+      req,
+    );
   }
 
   @Get(':id')
@@ -239,13 +233,10 @@ export class UserController {
   })
   async getUserById(
     @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: FastifyRequest,
   ): Promise<BaseResponse<UserResponseDto>> {
     const user = await this.getUserByIdUseCase.execute(id);
-    return {
-      success: true,
-      data: UserMapper.toResponse(user),
-      message: 'User retrieved successfully',
-    };
+    return ok(UserMapper.toResponse(user), 'User retrieved successfully', req);
   }
 
   @Patch(':id')
@@ -262,13 +253,10 @@ export class UserController {
   async updateUser(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @Req() req: FastifyRequest,
   ): Promise<BaseResponse<UserResponseDto>> {
     const user = await this.updateUserUseCase.execute(id, updateUserDto);
-    return {
-      success: true,
-      data: UserMapper.toResponse(user),
-      message: 'User updated successfully',
-    };
+    return ok(UserMapper.toResponse(user), 'User updated successfully', req);
   }
 
   @Delete(':id')

@@ -27,8 +27,8 @@ export interface RateLimitInfo {
 }
 
 export interface RateLimitStore {
-  increment: (key: string, options: RateLimitOptions) => RateLimitInfo;
-  reset: (key: string) => void;
+  increment: (key: string, options: RateLimitOptions) => Promise<RateLimitInfo>;
+  reset: (key: string) => Promise<void>;
   cleanup: () => void;
 }
 
@@ -53,24 +53,18 @@ export class RateLimitGuard implements CanActivate {
     };
   }
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RateLimitedFastifyRequest>();
     const response = context.switchToHttp().getResponse<FastifyReply>();
 
     try {
-      // Get rate limit options from metadata
       const options = this.getRateLimitOptions(context);
-
-      // Generate key for rate limiting
       const key = this.generateKey(request, options);
 
-      // Check rate limit
-      const rateLimitInfo = this.store.increment(key, options);
+      const rateLimitInfo = await this.store.increment(key, options);
 
-      // Add rate limit headers
       this.addRateLimitHeaders(response, rateLimitInfo);
 
-      // Check if rate limit exceeded
       if (rateLimitInfo.totalHits > options.max) {
         this.logger.security('Rate limit exceeded', {
           key,
@@ -91,7 +85,6 @@ export class RateLimitGuard implements CanActivate {
         });
       }
 
-      // Log rate limit info
       this.logger.http(`Rate limit check passed`, {
         key,
         totalHits: rateLimitInfo.totalHits,
@@ -102,12 +95,10 @@ export class RateLimitGuard implements CanActivate {
 
       return true;
     } catch (error) {
-      this.logger.errorWithException('Rate limit guard error', error as Error, undefined, {
-        path: request.url,
-        method: request.method,
-        ip: request.ip,
-      });
-
+      if (!(error instanceof ApplicationError)) {
+        this.logger.errorWithException('Rate limit store error — failing open', error as Error);
+        return true;
+      }
       throw error;
     }
   }
@@ -160,7 +151,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
     this.cleanupInterval.unref();
   }
 
-  increment(key: string, options: RateLimitOptions): RateLimitInfo {
+  increment(key: string, options: RateLimitOptions): Promise<RateLimitInfo> {
     const now = Date.now();
     const resetTime = new Date(now + options.windowMs);
 
@@ -248,16 +239,22 @@ export class RedisRateLimitStore implements RateLimitStore {
     private readonly logger: AppLoggerService,
   ) {}
 
-  increment(key: string, options: RateLimitOptions): RateLimitInfo {
+  async increment(key: string, options: RateLimitOptions): Promise<RateLimitInfo> {
     const now = Date.now();
     const resetTime = new Date(now + options.windowMs);
+    const ttlSeconds = Math.ceil(options.windowMs / 1000);
 
     const pipeline = this.redis.pipeline();
     pipeline.incr(key);
-    pipeline.expire(key, Math.ceil(options.windowMs / 1000));
-    void pipeline.exec();
+    pipeline.expire(key, ttlSeconds);
+    pipeline.ttl(key);
 
-    const totalHits = 1;
+    const results = await pipeline.exec();
+
+    const incrResult = results?.[0];
+    const totalHits =
+      incrResult && !incrResult[0] && typeof incrResult[1] === 'number' ? incrResult[1] : 1;
+
     return {
       totalHits,
       remainingHits: Math.max(0, options.max - totalHits),
@@ -266,9 +263,8 @@ export class RedisRateLimitStore implements RateLimitStore {
     };
   }
 
-  reset(key: string): void {
-    void this.redis.del(key);
-
+  async reset(key: string): Promise<void> {
+    await this.redis.del(key);
     this.logger.http(`Rate limit reset for key: ${key}`, { key });
   }
 

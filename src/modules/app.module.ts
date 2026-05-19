@@ -27,6 +27,7 @@ import { AuthGuard } from '@common/guards/auth.guard';
 import { AuthorizationGuard } from '@common/guards/authorization.guard';
 import { AppLoggerService } from '@common/services/logger.service';
 import { ResourceOwnershipService } from '@common/services/resource-ownership.service';
+import { CacheService } from '@common/services/cache.service';
 import { IntegrationsModule } from '@common/integrations/integrations.module';
 
 import { HealthModule } from '@modules/health/health.module';
@@ -97,6 +98,11 @@ import { ProductModule } from '@modules/product/product.module';
               : undefined,
             genReqId: (req: { headers: Record<string, unknown> }): string =>
               (req.headers['x-request-id'] as string | undefined) ?? randomUUID(),
+            customProps: (req: { headers: Record<string, unknown> }): object => {
+              return {
+                traceId: (req.headers['x-trace-id'] as string | undefined) ?? undefined,
+              };
+            },
           },
         };
       },
@@ -166,6 +172,7 @@ import { ProductModule } from '@modules/product/product.module';
   providers: [
     AppLoggerService,
     ResourceOwnershipService,
+    CacheService,
 
     // Rate limiting - custom guard with configurable limits
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },

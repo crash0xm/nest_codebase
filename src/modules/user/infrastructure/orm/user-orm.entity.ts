@@ -1,12 +1,13 @@
 import { Entity, Column, Index } from 'typeorm';
 import { SystemRole } from '@/modules/typeorm/entities/enums';
-import { BaseEntity } from '@/common/domain/base.entity';
+import { BaseOrmEntity } from '@/common/infrastructure/base-orm.entity';
 
 @Entity('users')
 @Index(['systemRole'])
 @Index(['isActive'])
 @Index(['createdAt'])
-export class UserOrmEntity extends BaseEntity {
+@Index(['deletedAt'])
+export class UserOrmEntity extends BaseOrmEntity {
   constructor() {
     super();
   }
@@ -19,6 +20,12 @@ export class UserOrmEntity extends BaseEntity {
 
   @Column({ name: 'full_name', type: 'varchar', nullable: true })
   fullName!: string | null;
+
+  @Column({ name: 'first_name', type: 'varchar', length: 100, nullable: true })
+  firstName!: string | null;
+
+  @Column({ name: 'last_name', type: 'varchar', length: 100, nullable: true })
+  lastName!: string | null;
 
   @Column({ default: 'vi' })
   locale!: string;

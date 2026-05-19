@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { UserEntity } from '../../domain/entities/user.entity';
 import { Role } from '../../domain/enums/role.enum';
 import {
@@ -19,9 +18,7 @@ import {
   UserNotFoundException,
 } from '@/common/domain/errors/application.error';
 import { QueryFailedError, EntityNotFoundError, FindOptionsWhere } from 'typeorm';
-import { splitFullName } from '@/common/utils/name.util';
 
-@Injectable()
 export class TypeOrmUserRepository
   extends TypeOrmBaseRepository<UserOrmEntity, UserEntity>
   implements IUserRepository
@@ -46,19 +43,17 @@ export class TypeOrmUserRepository
   }
 
   private mapToDomain(user: UserOrmEntity): UserEntity {
-    const { firstName, lastName } = splitFullName(user.fullName ?? '');
-
     return UserEntity.reconstitute({
       id: user.id,
       email: user.email,
-      firstName,
-      lastName,
+      firstName: user.firstName ?? '',
+      lastName: user.lastName ?? '',
       role: user.systemRole as unknown as Role,
       isActive: user.isActive,
       isEmailVerified: user.isEmailVerified,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      deletedAt: null,
+      deletedAt: user.deletedAt,
       passwordHash: user.passwordHash ?? null,
     });
   }
@@ -66,7 +61,7 @@ export class TypeOrmUserRepository
   async findByEmail(email: string): Promise<UserEntity | null> {
     const repo = this.getRepository();
     const user = await repo.findOne({
-      where: { email: email.toLowerCase() } as FindOptionsWhere<UserOrmEntity>,
+      where: { email: email.toLowerCase() },
     });
     return user ? this.mapToDomain(user) : null;
   }
@@ -96,14 +91,15 @@ export class TypeOrmUserRepository
 
   async create(data: CreateUserDto): Promise<UserEntity> {
     const created = await super.create({
-      email: data.email,
-      fullName: `${data.firstName} ${data.lastName}`.trim(),
+      email: data.email.toLowerCase(),
+      firstName: data.firstName,
+      lastName: data.lastName,
       systemRole: this.mapRoleToDbRole(data.role),
       passwordHash: data.passwordHash,
       isActive: true,
       locale: 'vi',
       timezone: 'Asia/Ho_Chi_Minh',
-    } as Partial<UserOrmEntity>);
+    });
     return this.mapToDomain(created as unknown as UserOrmEntity);
   }
 
@@ -111,7 +107,10 @@ export class TypeOrmUserRepository
     const updateData: Partial<UserOrmEntity> = {};
     const updateDto = data as UpdateUserDto;
     if (updateDto.firstName != null) {
-      updateData.fullName = `${updateDto.firstName} ${updateDto.lastName ?? ''}`.trim();
+      updateData.firstName = updateDto.firstName;
+    }
+    if (updateDto.lastName != null) {
+      updateData.lastName = updateDto.lastName;
     }
     if (updateDto.role != null) {
       updateData.systemRole = this.mapRoleToDbRole(updateDto.role);
@@ -122,15 +121,12 @@ export class TypeOrmUserRepository
   }
 
   async deactivate(id: string): Promise<void> {
-    await super.update(id, { isActive: false } as Partial<UserOrmEntity>);
+    await super.update(id, { isActive: false });
   }
 
   async updatePassword(id: string, passwordHash: string): Promise<void> {
     const repo = this.getRepository();
-    await repo.update(
-      { id } as FindOptionsWhere<UserOrmEntity>,
-      { passwordHash } as Partial<UserOrmEntity>,
-    );
+    await repo.update({ id }, { passwordHash });
   }
 
   async existsByEmail(email: string): Promise<boolean> {

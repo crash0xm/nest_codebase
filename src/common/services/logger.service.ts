@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ClsService } from 'nestjs-cls';
+import type { AppClsStore } from '@modules/cls/cls.module';
 
 export enum LogLevel {
   ERROR = 'error',
@@ -60,14 +62,37 @@ export class AppLoggerService {
   private readonly version: string;
   private readonly nestLogger: Logger;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional() private readonly cls?: ClsService<AppClsStore>,
+  ) {
     this.nestLogger = new Logger('AppLogger');
     this.isProduction = this.configService.get('app.nodeEnv') === 'production';
     this.serviceName = this.configService.get('app.name', 'NestJS SaaS');
     this.version = this.configService.get('app.apiVersion', '1.0.0');
   }
 
-  // Basic logging methods
+  private buildMetadata(extra?: LogMetadata): LogMetadata {
+    const clsContext: LogMetadata = {};
+
+    if (this.cls) {
+      try {
+        clsContext.requestId = this.cls.get('requestId');
+        clsContext.traceId = this.cls.get('traceId');
+        clsContext.userId = this.cls.get('userId');
+      } catch {
+        // CLS not active (e.g., background job, bootstrap)
+      }
+    }
+
+    return {
+      service: this.serviceName,
+      version: this.version,
+      ...clsContext,
+      ...extra,
+    };
+  }
+
   error(message: string, context?: LogContext, metadata?: LogMetadata): void {
     this.log(LogLevel.ERROR, message, context, metadata);
   }
@@ -240,11 +265,7 @@ export class AppLoggerService {
       context: context ?? LogContext.SYSTEM,
       message,
       timestamp: new Date().toISOString(),
-      metadata: {
-        service: this.serviceName,
-        version: this.version,
-        ...metadata,
-      },
+      metadata: this.buildMetadata(metadata),
     };
 
     this.writeLog(logEntry);

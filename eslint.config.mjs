@@ -91,4 +91,41 @@ export default tseslint.config(
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
+  {
+    files: ['src/modules/*/presentation/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['*/domain/repositories/*'],
+          message: 'Presentation layer không import từ domain repositories. Tạo DTO riêng trong presentation/dtos/'
+        }]
+      }]
+    }
+  },
+  {
+    files: ['src/common/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@/modules/user/*', '@/modules/product/*', '@/modules/auth/*', '@/modules/notification/*'],
+          message: 'common/ không import từ feature modules. Dùng dependency injection hoặc registerHandler pattern.'
+        }]
+      }]
+    }
+  },
+  {
+    files: [
+      'src/modules/*/application/**/*.ts',
+      'src/modules/*/domain/**/*.ts',
+    ],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@nestjs/common'],
+          importNames: ['HttpException', 'BadRequestException', 'NotFoundException', 'ConflictException', 'UnauthorizedException', 'ForbiddenException', 'InternalServerErrorException'],
+          message: 'Dùng ApplicationError hoặc DomainError từ @/common/domain/errors/ thay vì NestJS HTTP exceptions'
+        }]
+      }]
+    }
+  },
 );

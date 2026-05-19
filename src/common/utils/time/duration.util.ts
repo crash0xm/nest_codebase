@@ -1,3 +1,5 @@
+import { InfrastructureError } from '@/common/domain/errors/infrastructure.error';
+
 const DURATION_PATTERN = /^(\d+)([smhd])$/i;
 
 const UNIT_TO_SECONDS: Record<string, number> = {
@@ -15,7 +17,11 @@ export function parseDurationToSeconds(duration: string): number {
 
   const match = normalized.match(DURATION_PATTERN);
   if (!match) {
-    throw new Error(`Unsupported duration format: "${duration}"`);
+    throw new InfrastructureError(
+      `Unsupported duration format: "${duration}"`,
+      'INVALID_DURATION_FORMAT',
+      { duration },
+    );
   }
 
   const value = Number(match[1]);

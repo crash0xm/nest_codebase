@@ -25,6 +25,11 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/modules/typeorm/data-source.ts",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/modules/typeorm/data-source.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/modules/typeorm/data-source.ts",
+    "migration:show": "typeorm-ts-node-commonjs migration:show -d src/modules/typeorm/data-source.ts",
+    "schema:drop": "typeorm-ts-node-commonjs schema:drop -d src/modules/typeorm/data-source.ts",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -103,6 +108,7 @@
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-boundaries": "^6.0.2",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-prettier": "^5.2.2",
     "eslint-plugin-unused-imports": "^4.4.1",
