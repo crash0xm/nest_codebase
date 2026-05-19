@@ -12,7 +12,7 @@ import type { FastifyRequest } from 'fastify';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { IS_OPTIONAL_KEY } from '../decorators/optional.decorator';
 import { INJECTION_TOKENS } from '@/constants/injection-tokens';
-import type { ITokenStore } from '@/modules/auth/infrastructure/token-store/redis-token-store';
+import type { ITokenStore } from '@/common/interfaces/token-store.interface';
 import type { AuthConfig } from '@/config/auth/auth-config.type';
 
 // Single source of truth cho req.user trong toàn bộ app.

@@ -20,7 +20,7 @@ import { join } from 'path';
           migrationsRun: true,
           migrations: [join(__dirname, 'migrations', '**', '*{.ts,.js}')],
           logging: nodeEnv === 'development' ? ['error', 'warn', 'query'] : ['error'],
-          ssl: config.get<boolean>('database.ssl') ? { rejectUnauthorized: false } : false,
+          ssl: config.get<string>('database.ssl') === 'true' ? { rejectUnauthorized: false } : false,
           extra: {
             connectionTimeoutMillis: config.get<number>('database.acquireTimeout') ?? 5000,
             idleTimeoutMillis: config.get<number>('database.idleTimeout') ?? 600000,

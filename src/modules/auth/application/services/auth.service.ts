@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { SignOptions } from 'jsonwebtoken';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -18,6 +18,7 @@ import {
   ApplicationError,
   InvalidCredentialsError,
   InvalidTokenStructureError,
+  RefreshTokenReuseError,
   TokenInvalidError,
   TokenRevokedError,
   UserNotFoundException,
@@ -180,14 +181,14 @@ export class AuthService {
     if (!isValid) {
       this.logger.warn(`Refresh token reuse or invalid: userId=${userId} tokenId=${tokenId}`);
       await this.tokenStore.revokeAll(userId);
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new RefreshTokenReuseError();
     }
 
     // Get user to ensure they still exist and are active
     const user = await this.userRepository.findById(userId);
     if (!user || !user.isActive || user.isDeleted) {
       await this.tokenStore.revokeAll(userId);
-      throw new UnauthorizedException('User no longer active');
+      throw new AccountInactiveError(userId);
     }
 
     // Revoke OLD token (Rotation)

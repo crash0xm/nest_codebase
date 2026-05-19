@@ -63,7 +63,7 @@ export class RateLimitGuard implements CanActivate {
 
       const rateLimitInfo = await this.store.increment(key, options);
 
-      this.addRateLimitHeaders(response, rateLimitInfo);
+      this.addRateLimitHeaders(response, rateLimitInfo, options);
 
       if (rateLimitInfo.totalHits > options.max) {
         this.logger.security('Rate limit exceeded', {
@@ -129,8 +129,12 @@ export class RateLimitGuard implements CanActivate {
     }
   }
 
-  private addRateLimitHeaders(response: FastifyReply, rateLimitInfo: RateLimitInfo): void {
-    void response.header('X-RateLimit-Limit', String(rateLimitInfo.windowMs));
+  private addRateLimitHeaders(
+    response: FastifyReply,
+    rateLimitInfo: RateLimitInfo,
+    options: RateLimitOptions,
+  ): void {
+    void response.header('X-RateLimit-Limit', String(options.max));
     void response.header('X-RateLimit-Remaining', String(Math.max(0, rateLimitInfo.remainingHits)));
     void response.header('X-RateLimit-Reset', rateLimitInfo.resetTime.toISOString());
   }
@@ -180,15 +184,17 @@ export class MemoryRateLimitStore implements RateLimitStore {
 
     this.store.set(key, entry);
 
-    return entry;
+    return Promise.resolve(entry);
   }
 
-  reset(key: string): void {
+  reset(key: string): Promise<void> {
     this.store.delete(key);
 
     this.logger.http(`Rate limit reset for key: ${key}`, {
       key,
     });
+
+    return Promise.resolve();
   }
 
   cleanup(): void {

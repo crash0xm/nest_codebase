@@ -22,7 +22,7 @@ import { TypeOrmModule } from '@modules/typeorm/typeorm.module';
 import { RedisModule } from '@modules/redis/redis.module';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
-import { CustomThrottlerGuard } from '@common/guards/custom-throttler.guard';
+import { RateLimitGuard } from '@common/guards/rate-limit.guard';
 import { AuthGuard } from '@common/guards/auth.guard';
 import { AuthorizationGuard } from '@common/guards/authorization.guard';
 import { AppLoggerService } from '@common/services/logger.service';
@@ -175,7 +175,7 @@ import { ProductModule } from '@modules/product/product.module';
     CacheService,
 
     // Rate limiting - custom guard with configurable limits
-    { provide: APP_GUARD, useClass: CustomThrottlerGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
 
     // Global authentication
     { provide: APP_GUARD, useClass: AuthGuard },

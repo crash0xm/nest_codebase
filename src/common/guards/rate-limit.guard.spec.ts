@@ -55,7 +55,7 @@ describe('MemoryRateLimitStore', () => {
   });
 
   it('should increase totalHits on subsequent increments', () => {
-    store.increment('test-key', { windowMs: 60000, max: 10 });
+    void store.increment('test-key', { windowMs: 60000, max: 10 });
     const info = store.increment('test-key', { windowMs: 60000, max: 10 });
 
     expect(info.totalHits).toBe(2);
@@ -64,23 +64,23 @@ describe('MemoryRateLimitStore', () => {
 
   it('should reset after window expires', () => {
     const pastWindow = { windowMs: -60000, max: 10 };
-    store.increment('test-key', pastWindow);
+    void store.increment('test-key', pastWindow);
     const info = store.increment('test-key', { windowMs: 60000, max: 10 });
 
     expect(info.totalHits).toBe(1);
   });
 
   it('should reset a key', () => {
-    store.increment('test-key', { windowMs: 60000, max: 10 });
-    store.reset('test-key');
+    void store.increment('test-key', { windowMs: 60000, max: 10 });
+    void store.reset('test-key');
 
     const info = store.increment('test-key', { windowMs: 60000, max: 10 });
     expect(info.totalHits).toBe(1);
   });
 
   it('should cleanup expired entries', () => {
-    store.increment('expired-key', { windowMs: -1, max: 10 });
-    store.increment('active-key', { windowMs: 60000, max: 10 });
+    void store.increment('expired-key', { windowMs: -1, max: 10 });
+    void store.increment('active-key', { windowMs: 60000, max: 10 });
 
     store.cleanup();
 
@@ -117,13 +117,13 @@ describe('RedisRateLimitStore', () => {
   });
 
   it('should use redis pipeline for increment', () => {
-    store.increment('rate:key', { windowMs: 60000, max: 100 });
+    void store.increment('rate:key', { windowMs: 60000, max: 100 });
 
     expect(redis.pipeline).toHaveBeenCalled();
   });
 
   it('should reset via redis del', () => {
-    store.reset('rate:key');
+    void store.reset('rate:key');
 
     expect(redis.del).toHaveBeenCalledWith('rate:key');
   });

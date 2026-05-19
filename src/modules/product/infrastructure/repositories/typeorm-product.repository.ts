@@ -15,7 +15,7 @@ import { FindOptionsWhere } from 'typeorm';
 
 @Injectable()
 export class TypeOrmProductRepository
-  extends TypeOrmBaseRepository<ProductOrmEntity>
+  extends TypeOrmBaseRepository<ProductOrmEntity, ProductEntity>
   implements IProductRepository
 {
   constructor(typeOrmService: TypeOrmService, logger: AppLoggerService) {
@@ -41,7 +41,7 @@ export class TypeOrmProductRepository
 
   async findById(id: string): Promise<ProductEntity | null> {
     const product = await super.findById(id);
-    return product ? this.mapToDomain(product) : null;
+    return product ? this.mapToDomain(product as unknown as ProductOrmEntity) : null;
   }
 
   async findAll(options: PaginationOptions): Promise<PaginatedResult<ProductEntity>> {
@@ -54,7 +54,7 @@ export class TypeOrmProductRepository
     });
 
     return {
-      data: result.data.map((product) => this.mapToDomain(product)),
+      data: result.data.map((product) => this.mapToDomain(product as unknown as ProductOrmEntity)),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -65,7 +65,7 @@ export class TypeOrmProductRepository
   async create(data: CreateProductDto): Promise<ProductEntity>;
   async create(data: Record<string, unknown> | CreateProductDto): Promise<ProductEntity> {
     const product = await super.create(data as Partial<ProductOrmEntity>);
-    return this.mapToDomain(product);
+    return this.mapToDomain(product as unknown as ProductOrmEntity);
   }
 
   async update(id: string, data: Record<string, unknown>): Promise<ProductEntity>;
@@ -75,7 +75,7 @@ export class TypeOrmProductRepository
     data: Record<string, unknown> | UpdateProductDto,
   ): Promise<ProductEntity> {
     const product = await super.update(id, data as Partial<ProductOrmEntity>);
-    return this.mapToDomain(product);
+    return this.mapToDomain(product as unknown as ProductOrmEntity);
   }
 
   async delete(id: string): Promise<void> {

@@ -14,6 +14,7 @@ import { IProductRepository } from './domain/repositories/product.repository.int
   controllers: [ProductController],
   providers: [
     AppLoggerService,
+    ResourceOwnershipService,
     {
       provide: INJECTION_TOKENS.PRODUCT_REPOSITORY,
       useClass: TypeOrmProductRepository,

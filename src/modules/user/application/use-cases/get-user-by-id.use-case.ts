@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { IUserRepository } from '../../domain/repositories/user.repository.interface';
@@ -7,6 +7,7 @@ import { INJECTION_TOKENS } from '@/constants/injection-tokens';
 import { CacheKeys } from '@/constants/cache.constant';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Counter } from 'prom-client';
+import { NotFoundError } from '@/common/domain/errors/application.error';
 
 @Injectable()
 export class GetUserByIdUseCase {
@@ -36,7 +37,7 @@ export class GetUserByIdUseCase {
     const user = await this.userRepo.findById(id);
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundError('User', id);
     }
 
     // Cache the result if found
